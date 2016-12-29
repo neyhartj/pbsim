@@ -1,4 +1,4 @@
-# qgsim
+# pbsim
 An R package to simulate breeding experiments
 
 ## Introduction
@@ -11,7 +11,7 @@ or simulation tools (i.e. \code{\link{R/qtl}[http://www.rqtl.org/]} or
 ## Installation
 The package can be installed via the `devtools` package:
 ```
-devtools::install_github("neyhartj/qgsim")
+devtools::install_github("neyhartj/pbsim")
 ```
 
 ## Examples
