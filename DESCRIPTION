@@ -1,13 +1,19 @@
 Package: pbsim
-Title: What the Package Does (one line, title case)
+Title: Simulations of Plant Breeding Experiments
 Version: 0.0.0.9000
 Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Description: Includes functions and tools for simulating plant breeding experiments,
+    with a focus on the genetics of crosses and quantitative trait loci (QTL). This
+    is intended to be a base for hypothesis testing in QTL mapping and genomic
+    selection.
 Depends:
     R (>= 3.3.0)
-License: MIT + LICENSE
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 5.0.1
 LinkingTo: Rcpp
 Imports: Rcpp
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

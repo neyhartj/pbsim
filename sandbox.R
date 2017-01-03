@@ -7,6 +7,16 @@ library(qgsim)
 library(dplyr)
 library(stringr)
 
+
+
+n.mar = c(500, 500, 500)
+len = c(120, 130, 140)
+map <- NULL
+
+
+
+
+
 # Population size per cross
 n.ind = 30
 # Number of crosses

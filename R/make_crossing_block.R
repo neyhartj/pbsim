@@ -1,106 +1,204 @@
-#' Create a crossing block
+#' Create a crossing block from a vector of parents
 #' 
-#' @description Creates a crossing block of parent names for use in creating a family or population.
+#' @description 
+#' Create a crossing block based on parent names, with different options for
+#' mating scheme.
 #' 
-#' @param genome.object An object of class \code{genome} with declared positions of
-#' SNP markers and QTL.
-#' @param hap.genome1 A numeric vector of a parent's 1st haploid genome that is 
-#' the same length as the number of SNP loci in the genome. The elements of the 
-#' vector should be 0 or 1.
-#' @param hap.genome2 A numeric vector of a parent's 1st haploid genome that is 
-#' the same length as the number of SNP loci in the genome. The elements of the 
-#' vector should be 0 or 1.
-#' @param mutate A logical switch whether or not to mutate haploids before recombination.
-#' @param mu.snp A numeric vector giving the probability of a mutation at any given
-#' SNP marker per meiotic event. Mutations are assumed completely independent.
-#' @param mu.qtl A numeric vector giving the probability of a mutation at any given
-#' QTL per meiotic event. Mutations are assumed completely independent.
+#' @param parents A \code{character} of line names to use as parents. If
+#' \code{second.parents} is not provided, crosses are assigned from randomly sampling
+#' the entries in \code{parents}.
+#' @param second.parents A \code{character} of line names to use as parents. If
+#' not \code{NULL}, must be the same length as \code{parents}. Crosses are formed
+#' by randomly pairing the entries in \code{parents} with those in 
+#' \code{second.parents}, unless \code{scheme = "pass"} is specified.
+#' @param n.crosses The number of crosses to generate. Cannot be more than the
+#' possible number of crosses.
+#' @param scheme The mating scheme. Can be one of \code{"random"}, 
+#' \code{"all.pairwise"}, \code{"chain"}, or \code{"pass"}. See \code{Details} 
+#' for more information on the rules of these schemes.
+#' @param use.parents.once \code{Logical} - should parents be used only once?
 #' 
-#' @details TBD
+#' @details 
+#' Several options are available to generate crossing blocks from a list of
+#' parents. Here are the rules used for generating different crossing blocks.
 #' 
-#' @examples 
-#' n.chr = 3
-#' chr.len = c(1.0, 1.1, 1.2)
-#' chr.snps = c(15, 16, 17)
-#' genome <- make.genome(n.chr = n.chr, chr.len = chr.len, chr.snps = chr.snps)
-#' genome <- trait.architecture(genome.object = genome, n.qtl = 10)
+#' If \code{second.parents = NULL}:
 #' 
-#' hap1 <- sample(c(1,0), sum(chr.snps), replace = T)
-#' hap2 <- sample(c(1,0), sum(chr.snps), replace = T)
+#' \itemize{
+#'   \item{If \code{scheme = "random"} (default), crosses are randomly created
+#'   using the parents in \code{parents}. Reciprocal crosses are excluded. If
+#'   \code{n.crosses} is less than the total number of possible crosses
+#'   (\eqn{total crosses = (n * (n - 1)) / 2}), then \code{n.crosses} crosses are randomly
+#'   sampled. If \code{use.parents.once = TRUE}, then the list of crosses is
+#'   trimmed such that parents that were already used once are not used again. This
+#'   is ignored if the final number of crosses is less than \code{n.crosses}.}
+#'   \item{If \code{scheme = "random"}}
 #' 
-#' recombine(genome, hap1, hap2, mutate = T, mu.snp = 7e-8, mu.qtl = 7e-8)
+#' }
 #' 
-#' @return A \code{numeric} vector representing the haploid genome of a gamete that
-#' is the product of recombination between the two haploid genomes of a parent and 
-#' following any mutation events.
 #' 
+#' @import dplyr
 #' 
 #' @export
 #' 
-make.crossing.block <- function(parent1.lines, # Character vector of lines for the first parent
-                                parent2.lines, # Character vector of lines for the second parent
-                                n.crosses, # Number of crosses to make
-                                method = "random", # Method to assign parents. Can be "random" for random pairs of the parent1 and parent2, "chain" for sequential crosses (Note: can only be used if the parent1.line and parent2.lines vectors are identical), or "all.pairwise" for all possible pairwise crosses.
-                                use.parents.once = FALSE) {
+gen_crossing_block <- function(parents, second.parents = NULL, n.crosses,
+                               scheme = c("random", "all.pairwise", "chain", "pass"), 
+                               use.parents.once = FALSE) {
   
-  # Find the intersection of parent1.lines and parent2.lines
-  par.intersect <- intersect(parent1.lines, parent2.lines)
-  n.intersect <- length(par.intersect)
-  # Find the number of parent1 and parent2 lines
-  n.par1 <- length(parent1.lines)
-  n.par2 <- length(parent2.lines)
+  # Error
+  if (!is.character(first.parents)) 
+    stop("The input 'first.parents' must be a character.")
   
-  if ( all(n.intersect == n.par1, n.intersect == n.par2) ) {
-    n.possible.crosses <- (n.par1 * (n.par2 - 1)) / 2
-    same.lines = T
-  } else {
-    n.possible.crosses <- n.par1 * n.par2
-    same.lines = F
-  }
+  if (!is.null(second.parents)) 
+    if (!is.character(second.parents))
+      stop("The input 'second.parents' must be a character.")
   
-  # Create all pairwise crosses
-  sample.crosses <- expand.grid(parent1.lines, parent2.lines)[,c(2,1)]
-  # Remove selfs
-  sample.crosses <- subset(x = sample.crosses, !apply(X = sample.crosses, MARGIN = 1, FUN = function(cross) any(duplicated(cross))) )
+  # Is method a correct choice?
+  if (!method %in% c("random", all.pairwise))
+    stop("The argument 'method' must be 'random' or 'all.pairwise.'")
   
-  # If statements for methods
-  if (method == "all.pairwise") {
-    return(sample.crosses)
-  }
-  if (method == "random") {
-    # First see if the number of requested crosses is more than possible
-    if (n.crosses > n.possible.crosses) stop("n.crosses is more than possible.")
+  # Options if the second.parents are NULL
+  if (is.null(second.parents)) {
     
-    # If parents should only be used once, sample without replacement all lines and put them into a matrix
-    if (use.parents.once) {
-      # Sample into a matrix
-      if (same.lines) {
-        random.crosses <- as.data.frame(matrix(sample(parent1.lines), ncol = 2, byrow = T))
-        crosses.ind <- sort(sample(1:nrow(random.crosses), n.crosses))
-        random.crosses <- random.crosses[crosses.ind,]
-      } else {
-        # Are there any overlapping lines in the two parent vectors?
-        if (n.intersect == 0) {
-          # If so just sample each vector into a matrix
-          random.crosses <- as.data.frame(cbind( sample(parent1.lines), sample(parent2.lines) ))
-          crosses.ind <- sort(sample(1:nrow(random.crosses), n.crosses))
-          random.crosses <- random.crosses[crosses.ind,]
-        } else {
-          stop("Function not available.")
-        }
-      }
+    # Generate all pairwise crosses minus reciprocals
+    sample.crosses <- t(combn(x = first.parents, m = 2))
+    
+    # If the method is all pairwise, return all pairwise
+    if (method == "all.pairwise") {
+      chosen.crosses <- sample.crosses
       
     } else {
+      # Randomly sample n.crosses
+      crosses.ind <- sort(sample(seq_len(nrow(sample.crosses)), n.crosses))
+      chosen.crosses <- sample.crosses[crosses.ind,]
       
-      # Remove reciprocal
-      sample.crosses <- subset(x = sample.crosses, subset = !duplicated(t(apply(sample.crosses, MARGIN = 1, FUN = sort))))
-      crosses.ind <- sort(sample(1:nrow(sample.crosses), n.crosses))
-      random.crosses <- sample.crosses[crosses.ind,]
     }
     
-    colnames(random.crosses) <- c("Parent1", "Parent2")
-    row.names(random.crosses) <- NULL
-    return(random.crosses)
   }
+    
   
 } # Close the function
+    
+#   
+#   
+#   
+#   
+#   # If using parents once, make sure that there are enough crosses
+#   if (use.parents.once) {
+#     
+#     # Find duplicated parents
+#     
+#     
+#     
+#     
+#   }
+#     
+# 
+#     
+#     
+#     
+#   
+#   # Generate all pairwise crossses
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   
+#   parent1.lines, parent2.lines, n.crosses, 
+#                                 method = "random", use.parents.once = FALSE) {
+#   
+#   # Find the intersection of parent1.lines and parent2.lines
+#   par.intersect <- intersect(parent1.lines, parent2.lines)
+#   n.intersect <- length(par.intersect)
+#   # Find the number of parent1 and parent2 lines
+#   n.par1 <- length(parent1.lines)
+#   n.par2 <- length(parent2.lines)
+#   
+#   if ( all(n.intersect == n.par1, n.intersect == n.par2) ) {
+#     n.possible.crosses <- (n.par1 * (n.par2 - 1)) / 2
+#     same.lines = T
+#   } else {
+#     n.possible.crosses <- n.par1 * n.par2
+#     same.lines = F
+#   }
+#   
+#   # Create all pairwise crosses
+#   sample.crosses <- expand.grid(parent1.lines, parent2.lines) %>%
+#     select(Var2, Var1)
+#   
+#   # Remove selfs
+#   sample.crosses1 <- sample.crosses %>%
+#     filter(apply(X = sample.crosses, MARGIN = 1, FUN = function(cross) length(unique(cross)) > 1))
+#   
+#   # If statements for methods
+#   if (method == "all.pairwise") {
+#     
+#     return(sample.crosses1)
+#     
+#   } else {
+#     
+#     if (n.crosses > n.possible.crosses) stop("n.crosses is more than possible.")
+#     
+#     # If parents should only be used once, sample without replacement all lines 
+#     # and put them into a matrix
+#     
+#     if (use.parents.once) {
+#       
+#       # Sample into a matrix
+#       if (same.lines) {
+#         
+#         # Create random crosses from the parent lines
+#         random.crosses <- sample(parent1.lines) %>%
+#           matrix(ncol = 2, byrow = T) %>%
+#           as.data.frame()
+#         
+#         # Sample n.crosses from the random crosses
+#         selected.crosses <- random.crosses %>%
+#           sample_n(size = n.crosses)
+#         
+#       } else {
+#         
+#         # Are there any overlapping lines in the two parent vectors?
+#         if (n.intersect == 0) {
+#           
+#           # If not just sample each vector into a matrix
+#           random.crosses <- cbind( sample(parent1.lines), sample(parent2.lines) ) %>%
+#             as.data.frame()
+#           
+#           # Sample n.crosses from the random crosses
+#           selected.crosses <- random.crosses %>%
+#             sample_n(size = n.crosses)
+#           
+#         } else {
+#           stop("Function not available.")
+#         }
+#       }
+#       
+#     } else {
+#       
+#       # Remove reciprocal
+#       sample.crosses2 <- sample.crosses1 %>%
+#         filter(!apply(X = sample.crosses1, MARGIN = 1, FUN = sort) %>% 
+#                  t() %>% 
+#                  duplicated() )
+#       
+#       # Sample n.crosses from the sample crosses
+#       selected.crosses <- sample.crosses2 %>%
+#         sample_n(size = n.crosses)
+#       
+#     }
+#     
+#     # Rename
+#     colnames(selected.crosses) <- c("Parent1", "Parent2")
+#     row.names(selected.crosses) <- NULL
+#     return(selected.crosses)
+#   }
+#   
+# } # Close the function
