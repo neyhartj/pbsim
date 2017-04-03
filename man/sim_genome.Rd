@@ -4,7 +4,7 @@
 \alias{sim_genome}
 \title{Create a simulated genome}
 \usage{
-sim_genome(len, n.mar, map = NULL)
+sim_genome(len, n.mar, map = NULL, eq.spacing = FALSE)
 }
 \arguments{
 \item{len}{A vector specifying the chromosome lengths (in cM).}
@@ -15,6 +15,8 @@ sim_genome(len, n.mar, map = NULL)
 named vector of marker positions. If \code{NULL} (default), marker positions
 are drawn from a uniform distribution. See \code{\link[qtl]{sim.map}} for more
 information.}
+
+\item{eq.spacing}{If TRUE, markers will be equally spaced. See \code{\link[qtl]{sim.map}}.}
 }
 \value{
 Object of class "genome" with the length of each chromosome, the number of

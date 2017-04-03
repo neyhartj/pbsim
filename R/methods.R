@@ -22,15 +22,15 @@ summary.genome <- function(x) {
   } else {
     
     n.qtl <- nrow(gen_model)
-    qtl.chr <- table(gen_model[,1])
+    qtl.chr <- table(gen_model$chr)
     
     cat("\nGenetic model summary\n")
     cat("Number of QTL: ", n.qtl, "\n")
     cat("QTL per chromosome: ", qtl.chr, "\n") 
     cat("Distribution of additive effects:\n")
-    print(summary(gen_model[,3]))
+    print(summary(gen_model$add.eff))
     cat("Distribution of dominance effects: \n")
-    print(summary(gen_model[,4]))
+    print(summary(gen_model$dom.eff))
     
   }
   

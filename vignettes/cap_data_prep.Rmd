@@ -1,0 +1,210 @@
+---
+title: "Gather Genotype Data from T3"
+author: "Jeff Neyhart"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This markdown file outlines the preparation of BOPA SNP genotype data from the 183 members of the S2 training population
+
+```{r libraries}
+
+# Load packages
+library(tidyverse)
+library(stringr)
+library(qtl)
+
+# Define a function to take a matrix and compare all columns and return an index of the identical columns
+identical.columns <- function(input.matrix) {
+  
+  # Error handling
+  input.matrix <- as.matrix(input.matrix)
+  
+  # Save the vector 1:ncol(input.matrix)
+  col.ind <- 1:ncol(input.matrix)
+  
+  # Create a comparison list
+  comparison.list <- list()
+  
+  # Loop over the number of columns
+  for (i in col.ind) {
+    
+    # Extract column i
+    col.i <- input.matrix[,i]
+    # Compare it to all other columns
+    compare.i <- apply(X = as.matrix(input.matrix[,setdiff(col.ind, i)]), MARGIN = 2, FUN = function(column) identical(col.i, column) )
+    # Find the columns that match
+    col.compare <- setdiff(col.ind, i)[compare.i]
+    
+    # Add to the list
+    comparison.list[[i]] <- sort(c(i, col.compare))
+  }
+  
+  # Find the unique groups
+  comparison.list <- unique(comparison.list)
+  
+  # Return the comparison list
+  return(comparison.list)
+} # Close the function
+
+```
+
+## Data Acquisition
+
+The data were acquired from T3 and downloaded without any filters
+
+## Processing
+
+
+
+```{r process}
+
+# Read in the data
+s2_genos <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/Unfiltered/genotype.hmp.txt")
+
+# Extract the metadata (map, chromosome, etc)
+snp_info <- s2_genos %>%
+  select(rs:pos)
+
+# Calculate cM position from the hecto-Morgan positions given
+snp_info1 <- snp_info %>%
+  mutate(cM_pos = pos / 1000) %>%
+  select(-pos)
+
+
+# Trim the genotype matrix
+s2_genos_mat <- s2_genos %>%
+  select(-rs:-pos) %>%
+  mutate_each(funs = funs(parse_number)) %>%
+  as.matrix()
+
+# Add rownames
+row.names(s2_genos_mat) <- snp_info1$rs
+
+# Transpose
+s2_genos_mat1 <- t(s2_genos_mat)
+
+# Remove markers with > 10% missing data
+marker_missing <- s2_genos_mat1 %>%
+  is.na() %>%
+  colMeans()
+
+s2_genos_mat2 <- s2_genos_mat1[,marker_missing <= 0.10]
+
+# Remove entries with > 10% missing data
+entry_missing <- s2_genos_mat2 %>%
+  is.na() %>%
+  rowMeans()
+
+s2_genos_mat3 <- s2_genos_mat2[entry_missing <= 0.10,]
+
+# Remove markers with < 0.05 MAF
+marker_MAF <- (s2_genos_mat3 + 1) %>%
+  colMeans(na.rm = T) %>%
+  {. / 2} %>% 
+  sapply(FUN = function(freq) min(freq, 1-freq))
+
+s2_genos_mat4 <- s2_genos_mat3[,marker_MAF >= 0.05]
+
+# Trim the snp_info data.frame and remove unknown
+snp_info2 <- snp_info1 %>% 
+  filter(rs %in% colnames(s2_genos_mat4),
+         chrom != "UNK")
+
+# Remove the unknowns from the genotype matrix
+s2_genos_mat5 <- s2_genos_mat4[,snp_info2$rs]
+
+
+### Processing of the marker matrix for use in simulation
+# Remove redundant markers
+# These are characterized by having the same genotypes across all samples AND fall on the same cM position
+
+# Split the marker information by unique position
+unique_snp_list <- snp_info2 %>% 
+  split(list(.$chrom, .$cM_pos))
+
+# Remove NULL
+unique_snp_list <- unique_snp_list[sapply(unique_snp_list, nrow) != 0]
+
+# Apply a function to each group of unique SNPs
+non.redundant.marker.list <- lapply(unique_snp_list, FUN = function(uniq_info) {
+  
+  # If the number of markers is 1, just return the marker
+  if (nrow(uniq_info) == 1) {
+    return(uniq_info)
+    
+  } else { # Otherwise look more closely
+    
+    # Extract the marker names
+    marker.names <- uniq_info$rs
+
+    M.i <- s2_genos_mat5[,marker.names, drop = FALSE]
+    
+    # Determine if the genotype calls are the same between markers
+    same.genos <- identical.columns(input.matrix = M.i)
+    
+    # Choose the first index from each group
+    # Gather the names of the chosen markers
+    non.redundant.marker.names <- colnames(M.i)[sapply(X = same.genos, FUN = function(group) group[1])]
+    
+    # Extract marker info for those markers and return
+    snp_info2 %>%
+      filter(rs %in% non.redundant.marker.names)
+
+  } })
+    
+# Collapse the list
+snp_info3 <- bind_rows(non.redundant.marker.list) %>%
+  arrange(chrom, cM_pos)
+
+# Extract the map
+gen_map <- snp_info3 %>% 
+  split(.$chrom) %>% 
+  map(select, cM_pos) %>% 
+  map(unlist)
+
+class(gen_map) <- "map"
+
+# Jitter the map
+gen_map_jitter <- jittermap(gen_map) %>%
+  unlist()
+
+# Replace the snp_info map
+snp_info4 <- snp_info3 %>% 
+  mutate(cM_pos = gen_map_jitter)
+
+# Subset the genotype matrix again
+s2_genos_mat6 <- s2_genos_mat5[,snp_info4$rs]
+
+## Impute
+# Set hets to missing
+s2_genos_mat6[s2_genos_mat6 == 0] <- NA
+
+# Impute using mean
+s2_genos_imputed <- s2_genos_mat6 %>% 
+  apply(MARGIN = 2, FUN = function(snp) {
+    # Mean genotype
+    mean_geno <- mean(snp, na.rm = T)
+    # Round
+    mean_geno <- ifelse(mean_geno < 0, -1, 1)
+    snp[is.na(snp)] <- mean_geno
+    return(snp) })
+
+s2_genos <- s2_genos_imputed
+
+s2_snp_info <- snp_info4
+
+
+```
+
+

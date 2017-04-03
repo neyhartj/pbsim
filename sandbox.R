@@ -195,7 +195,11 @@ system.time(
 
 
 
+## BSL examples
+library(BreedingSchemeLanguage)
 
+species <- defineSpecies(nSim = 1, nCore = 1, nChr = 7, lengthChr = 150, effPopSize = 100,
+                         nMarkers = 5000, nQTL = 100, propDomi = 0, nEpiLoci = 0)
 
 
 

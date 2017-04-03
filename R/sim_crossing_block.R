@@ -41,7 +41,7 @@
 #' 
 #' @export
 #' 
-gen_crossing_block <- function(parents, second.parents = NULL, n.crosses,
+sim_crossing_block <- function(parents, second.parents = NULL, n.crosses,
                                scheme = c("random", "all.pairwise", "chain", "pass"), 
                                use.parents.once = FALSE) {
   

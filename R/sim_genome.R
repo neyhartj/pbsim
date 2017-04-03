@@ -9,6 +9,7 @@
 #' named vector of marker positions. If \code{NULL} (default), marker positions
 #' are drawn from a uniform distribution. See \code{\link[qtl]{sim.map}} for more
 #' information.
+#' @param eq.spacing If TRUE, markers will be equally spaced. See \code{\link[qtl]{sim.map}}.
 #' 
 #' @return 
 #' Object of class "genome" with the length of each chromosome, the number of
@@ -25,7 +26,7 @@
 #' @export 
 #' 
 #' 
-sim_genome <- function(len, n.mar, map = NULL) {
+sim_genome <- function(len, n.mar, map = NULL, eq.spacing = FALSE) {
   
   # Error handling
   len <- as.numeric(len)
@@ -51,7 +52,7 @@ sim_genome <- function(len, n.mar, map = NULL) {
   if (is.null(map)) {
     
     # Use R/qtl
-    map <- sim.map(len = len, n.mar = n.mar, include.x = FALSE)
+    map <- sim.map(len = len, n.mar = n.mar, include.x = FALSE, eq.spacing = eq.spacing)
     
     # If map is not null, check compatability
   } else {

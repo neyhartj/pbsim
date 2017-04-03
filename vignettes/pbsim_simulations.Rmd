@@ -55,8 +55,8 @@ ped <- sim_pedigree(n.ind = 30, n.bcgen = 0, n.selfgen = 2)
 ## Simulate a family
 
 ```{r}
-# First generate founders
-founder_geno <- t(replicate(2, sample(x = c(0,2), size = sum(genome$n.mar), replace = T)))
+# First generate founders for a bi-parental population
+founder_geno <- sim_founders(genome)
 
 fam <- sim_family(genome, ped, founder_geno)
 

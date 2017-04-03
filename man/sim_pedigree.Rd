@@ -4,7 +4,7 @@
 \alias{sim_pedigree}
 \title{Create a pedigree for a cross}
 \usage{
-sim_pedigree(n.ind, bcpar = NULL, n.bcgen, n.selfgen)
+sim_pedigree(n.ind, bcpar, n.bcgen = 0, n.selfgen = Inf)
 }
 \arguments{
 \item{n.ind}{The number of initial F_1 individuals that are created. By
@@ -17,7 +17,8 @@ can be \code{1} or \code{2}.}
 by \code{bc.par}.}
 
 \item{n.selfgen}{The number of selfing generations. For instance, 
-\code{n.self.gen = 5} would produce a F_6 family}
+\code{n.self.gen = 5} would produce a F_6 family. If \code{Inf}, the pedigree
+defines "complete" selfing. If not, selfing is "partial."}
 }
 \value{
 A matrix of class \code{pedigree} with 5 columns. The first column contains

@@ -4,7 +4,7 @@
 #' Defines the genetic architecture of a trait.
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param qtl.matrix  A matrix specifying the QTL model. Each row corresponds to
+#' @param qtl.model  A matrix specifying the QTL model. Each row corresponds to
 #' a different QTL. The first column gives the chromosome number, the second 
 #' column gives marker index, the third column gives the additive effect of
 #' the favorable QTL allele (\code{a}) and the fourth column gives the dominance
@@ -69,8 +69,8 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     stop("The input 'genome' must be of class 'genome.'")
   
   # Make sure qtl.model has four columns
-  if (ncol(qtl.model) != 4)
-    stop("The input 'qtl.model' must have 4 columns.")
+  if (ncol(qtl.model) < 4)
+    stop("The input 'qtl.model' must have at least 4 columns.")
   
   # Extract other arguments
   other.args <- list(...)
@@ -137,11 +137,13 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     
     # Simulate additive effects
     if (add.dist == "normal") 
-      add.eff <- abs(rnorm(n.qtl))
+      add.eff <- rnorm(n.qtl)
     
     if (add.dist == "geometric") {
       a <- (1 - n.qtl) / (1 + n.qtl)
       add.eff <- sample(abs( a ^ (seq(n.qtl)) ))
+      # Randomly assign favorable or unfavorable for the first allele
+      add.eff <- add.eff * sample(x = c(-1, 1), size = n.qtl, replace = TRUE)
     }
     
     # Simulate dominance effect 
@@ -149,39 +151,45 @@ sim_gen_model <- function(genome, qtl.model, ...) {
       dom.eff <- 0
     
     } else {
-      dom.eff <- abs(rnorm(n.qtl))
+      dom.eff <- rnorm(n.qtl)
     }
     
     # Randomly draw chromosomes
     chr <- sort(sample(seq_len(n.chr), n.qtl, replace = TRUE))
     
-    # For each unique chromosome, randomly sample marker indices
-    qtl.ind <- sapply(X = split(chr, chr), FUN = function(chr.list) {  
+    # Randomly draw SNPs to become QTL.
+    qtl.ind <- lapply(X = split(chr, chr), FUN = function(chr.list) { 
       chr.num <- unique(chr.list)
       sort(sample(seq_len(genome$n.mar[chr.num]), length(chr.list))) })
-    
+
     qtl.ind <- unlist(qtl.ind)
     
-    # Assemble the matrix`
+    # Assemble the matrix
     qtl.model <- cbind(chr, qtl.ind, add.eff, dom.eff)
 
   }
+  
+  # Convert the matrix to a data.frame
+  qtl_model_df <- as.data.frame(qtl.model)
     
   # Extract cM positions for the QTL
   qtl.ind <- split(qtl.model[,2], qtl.model[,1])
   
-  qtl.pos <- mapply(qtl.ind, genome$map, FUN = function(i, m) m[i], SIMPLIFY = FALSE)
-  qtl.pos <- unlist(qtl.pos)
+  # Extract the map only for chromosomes in which QTL were designated
+  gen_map <- genome$map[as.numeric(unique(names(qtl.ind)))]
   
-  # Add the position to the model matrix
-  qtl.model <- cbind(qtl.model, qtl.pos)
+  qtl.pos <- mapply(qtl.ind, gen_map, FUN = function(i, m) 
+    data.frame(snp = names(m[i]), pos = m[i], row.names = NULL), SIMPLIFY = FALSE)
+  qtl.pos <- do.call("rbind", qtl.pos)
   
-  # Change column names
-  colnames(qtl.model) <- c("chr", "index", "add.eff", "dom.eff", "cM.pos")
-  row.names(qtl.model) <- NULL
+  # Add the position to the qtl model matrix and rearrange
+  qtl_model <- cbind(qtl_model_df, qtl.pos)[,c(1, 5:6, 2:4)]
+  
+  # Change row.names names
+  row.names(qtl_model) <- NULL
   
   # Add the genetic model to the genome
-  genome[["gen_model"]] <- qtl.model
+  genome[["gen_model"]] <- qtl_model
   
   return(genome)
     

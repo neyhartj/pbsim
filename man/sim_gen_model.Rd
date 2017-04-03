@@ -9,7 +9,7 @@ sim_gen_model(genome, qtl.model, ...)
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{qtl.matrix}{A matrix specifying the QTL model. Each row corresponds to
+\item{qtl.model}{A matrix specifying the QTL model. Each row corresponds to
 a different QTL. The first column gives the chromosome number, the second 
 column gives marker index, the third column gives the additive effect of
 the favorable QTL allele (\code{a}) and the fourth column gives the dominance

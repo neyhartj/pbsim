@@ -12,7 +12,8 @@ sim_family(genome, pedigree, founder_geno, ...)
 \item{pedigree}{An object of class \code{pedigree} detailing the scheme to 
 develop the family.}
 
-\item{founder_geno}{A matrix with \code{n.founder} rows and \code{n.mar}
+\item{founder_geno}{A list of the same length as there are chromosomes in the 
+\code{genome}. Each element should be a matrix with \code{n.founder} rows and \code{n.mar}
 columns with founder genotypes. Must be coded as z = {0, 1, 2}.}
 
 \item{...}{Additional arguments. See \code{Details}.}
@@ -42,7 +43,7 @@ genome <- sim_genome(len, n.mar)
 ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
 
 # Simulate the founder genotypes
-founder_geno <- t(replicate(2, sample(x = c(0,2), size = sum(genome$n.mar), replace = T)))
+founder_geno <- sim_founder(genome)
 
 # Create the family
 fam <- sim_family(genome, ped, founder_geno)
