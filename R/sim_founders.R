@@ -21,6 +21,22 @@
 #' See \code{\link[qtl]{simFounderSnps}}. A \code{list} of the same length as \code{map},
 #' with each element being a matrix of 0's and 2's.
 #' 
+#' @examples 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
+#' 
+#' # Simulate a pedigree
+#' ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
+#' 
+#' # Simulate the founder genotypes
+#' founder_geno <- sim_founders(genome)
+#' 
 #' @export
 #' 
 sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
@@ -77,6 +93,12 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
   
   # Find the number of markers
   n.mar <- sapply(map, length)
+  # Get the names of markers
+  mar_names <- unlist(lapply(map, names))
+  # Create founder names
+  founder_names <- paste("founder", seq(n.str), sep = "")
+  
+  
   # Empty vector
   output <- vector("list", length(map))
   names(output) <- names(map)
@@ -96,6 +118,12 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
     }
   }
   
-  return(output)
+  # Bind the list into a matrix
+  geno <- do.call("cbind", output)
+  
+  # Add row and column names
+  dimnames(geno) <- list(founder_names, mar_names)
+  
+  return(geno)
   
 } # Close the function

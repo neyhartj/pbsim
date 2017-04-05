@@ -43,7 +43,7 @@ genome <- sim_genome(len, n.mar)
 ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
 
 # Simulate the founder genotypes
-founder_geno <- sim_founder(genome)
+founder_geno <- sim_founders(genome)
 
 # Create the family
 fam <- sim_family(genome, ped, founder_geno)

@@ -10,15 +10,24 @@
 #' @param h2 The heritability of the trait.
 #' @param n.env The number of environments in which to phenotype.
 #' @param n.rep The number of replicates of each individual in each environment.
+#' @param ... Other arguments. See \code{Details}.
 #' 
 #' @details
+#' Other arguments that can be specified are :
+#' \itemize{
+#'   \item{\code{V_E}: The variance of environmental effects.}
+#'   \item{\code{V_R}: The variance of the residual effects.}
+#'   }
+#' 
 #' The genotypic value of individuals is calculcated as the sum of the QTL effects
 #' carried by each individual. The genetic variance is calculated as the variance
 #' of these genotypic values (\eqn{V_G = var(g)}).
 #' 
-#' Environmental effects are draw from a normal distribution such that \eqn{e ~ N(0, V_E)},
-#' where \code{V_E} is the environmental variance and is 8 times the genotypic variance.
-#' The residual variance (\code{V_R}) is calculated from \code{h2}, where
+#' Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
+#' where \code{V_E} is the environmental variance. If \code{V_E} is not provided, it 
+#' is 8 times the genotypic variance. Residual effects are drawn from a normal distribution 
+#' such that \eqn{\epsilon ~ N(0, V_R)}, where \code{V_R} is the residual variance.
+#' If \code{V_R} is not provided, it is calculated from \code{h2}, where
 #' 
 #' \eqn{V_R = n.rep * n.env * (\frac{Vg}{h2} - Vg)}.
 #' 
@@ -27,9 +36,28 @@
 #' observations of each rep in each environment), and \code{pheno_mean} (the mean phenotypic
 #' value for each individual).
 #' 
+#' @examples 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
+#' 
+#' # Simulate a pedigree
+#' ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
+#' 
+#' # Simulate the founder genotypes
+#' founder_geno <- sim_founders(genome)
+#' 
+#' # Simulate phenotypes for a trait with a heritability of 0.5
+#' phenos <- sim_pheno(genome, founder_geno, h2 = 0.5)
+#' 
 #' @export 
 #' 
-sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1) {
+sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1, ...) {
   
   # Check class
   stopifnot(inherits(x = genome, what = "genome"))
@@ -46,6 +74,14 @@ sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1) {
   # Are the genos coded correctly?
   if (!all(unlist(geno) %in% c(0, 1, 2)))
     stop("The input 'geno' must be encoded in z {0, 1, 2}.")
+  
+  # Capture the other arguments
+  other.args <- list(...)
+  # If this list is not empty, make sure that the elements are correctly named
+  if (length(other.args) != 0)
+    # Warn if both are not provided
+    if (!all(c("V_E", "V_R") %in% names(other.args)))
+      warning("Either V_E or V_R were not passed. This may be a mistake.")
   
   # Grab the genetic model
   gen_model <- genome$gen_model
@@ -111,14 +147,28 @@ sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1) {
               dimnames = dimnames(geno_val))
   
   # Calculate genetic variance
-  Vg <- var(geno_val)
+  Vg <- as.numeric(var(geno_val))
   
-  # Calculate environment variance
-  Ve <- Vg * 8
+  # Calculate environment variance if not provided
+  if (is.null(other.args$V_E)) {
+    Ve <- Vg * 8
+    
+  } else{
+    Ve <- other.args$V_E
+    
+  }
   
-  # Calculate residual variance
-  Vr <- n.rep * n.env * ((Vg / h2) - Vg)
+  # Calculate residual variance if not provided
+  if (is.null(other.args$V_R)) {
+    Vr <- n.rep * n.env * ((Vg / h2) - Vg)
+    
+  } else{
+    Vr <- other.args$V_R
+    
+  }
   
+  # List of variance components
+  var_comp <- list(V_G = Vg, V_E = Ve, V_R = Vr)
   
   # Generate environment effects
   e <- matrix(data = rnorm(n = n.env, mean = 0, sd = sqrt(Ve)), nrow = n.ind, 
@@ -131,11 +181,18 @@ sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1) {
   # Sum
   p <- g + e + epsilon
   
+  # Add environment/rep names
+  colnames(p) <- paste( 
+    paste("env", seq(n.env), sep = ""), 
+    rep(paste("rep", seq(n.rep), sep = ""), each = 2), sep = "_" )
+  
   # Calculate the mean phenotypic value
   mu_p <- as.matrix(rowMeans(p))
   
-  # Return a list of genotypic values, phenotypic values, and mean phenotypic values
+  # Return a list of variance components, genotypic values, phenotypic values, 
+  # and mean phenotypic values
   list(
+    var_comp = var_comp,
     geno_val = geno_val,
     pheno_val = p,
     pheno_mean = mu_p

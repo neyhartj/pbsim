@@ -4,7 +4,7 @@
 \alias{sim_pheno}
 \title{Simulate phenotypes given QTL genotypes}
 \usage{
-sim_pheno(genome, geno, h2, n.env = 1, n.rep = 1)
+sim_pheno(genome, geno, h2, n.env = 1, n.rep = 1, ...)
 }
 \arguments{
 \item{genome}{A \code{genome} object.}
@@ -17,6 +17,8 @@ sim_pheno(genome, geno, h2, n.env = 1, n.rep = 1)
 \item{n.env}{The number of environments in which to phenotype.}
 
 \item{n.rep}{The number of replicates of each individual in each environment.}
+
+\item{...}{Other arguments. See \code{Details}.}
 }
 \value{
 A list with \code{geno_val} (the genotypic values), \code{pheno_val} (the phenotypic
@@ -28,14 +30,42 @@ Simulates phenotypic observations given the genotypic value of individuals and t
 heritability of a quantitative trait.
 }
 \details{
+Other arguments that can be specified are :
+\itemize{
+  \item{\code{V_E}: The variance of environmental effects.}
+  \item{\code{V_R}: The variance of the residual effects.}
+  }
+
 The genotypic value of individuals is calculcated as the sum of the QTL effects
 carried by each individual. The genetic variance is calculated as the variance
 of these genotypic values (\eqn{V_G = var(g)}).
 
-Environmental effects are draw from a normal distribution such that \eqn{e ~ N(0, V_E)},
-where \code{V_E} is the environmental variance and is 8 times the genotypic variance.
-The residual variance (\code{V_R}) is calculated from \code{h2}, where
+Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
+where \code{V_E} is the environmental variance. If \code{V_E} is not provided, it 
+is 8 times the genotypic variance. Residual effects are drawn from a normal distribution 
+such that \eqn{\epsilon ~ N(0, V_R)}, where \code{V_R} is the residual variance.
+If \code{V_R} is not provided, it is calculated from \code{h2}, where
 
 \eqn{V_R = n.rep * n.env * (\frac{Vg}{h2} - Vg)}.
+}
+\examples{
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Simulate a quantitative trait influenced by 50 QTL
+genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
+
+# Simulate a pedigree
+ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
+
+# Simulate the founder genotypes
+founder_geno <- sim_founders(genome)
+
+# Simulate phenotypes for a trait with a heritability of 0.5
+phenos <- sim_pheno(genome, founder_geno, h2 = 0.5)
+
 }
 
