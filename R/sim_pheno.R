@@ -55,6 +55,9 @@
 #' # Simulate phenotypes for a trait with a heritability of 0.5
 #' phenos <- sim_pheno(genome, founder_geno, h2 = 0.5)
 #' 
+#' @import tidyr
+#' @import dplyr
+#' 
 #' @export 
 #' 
 sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1, ...) {
@@ -141,10 +144,13 @@ sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1, ...) {
     
   }
   
-  # Column bind and sum
+  # Cbind the list
   geno_val <- as.matrix(rowSums(do.call("cbind", geno_val)))
+  # Add column names
+  colnames(geno_val) <- "geno_val"
+  
   g <- matrix(geno_val, nrow = n.ind, ncol = n.env * n.rep, byrow = F,
-              dimnames = dimnames(geno_val))
+              dimnames = list(row.names(geno_val), NULL))
   
   # Calculate genetic variance
   Vg <- as.numeric(var(geno_val))
@@ -184,17 +190,28 @@ sim_pheno <- function(genome, geno, h2, n.env = 1, n.rep = 1, ...) {
   # Add environment/rep names
   colnames(p) <- paste( 
     paste("env", seq(n.env), sep = ""), 
-    rep(paste("rep", seq(n.rep), sep = ""), each = 2), sep = "_" )
+    rep(paste("rep", seq(n.rep), sep = ""), each = n.env), sep = "_" )
+    
+  # Tidy the genotypes
+  g_df <- data.frame(entry = row.names(geno_val), geno_val, row.names = NULL)
+  
+  # Tidy the phenotypes
+  p_df <- data.frame(entry = row.names(p), p) %>% 
+    gather(key = obs, value = pheno_val, -entry) %>%
+    separate(col = obs, into = c("env", "rep"), sep = "_", remove = TRUE)
   
   # Calculate the mean phenotypic value
-  mu_p <- as.matrix(rowMeans(p))
+  mu_p <- p_df %>% 
+    group_by(entry) %>% 
+    summarize(pheno_mean = mean(pheno_val)) %>% 
+    as.data.frame()
   
   # Return a list of variance components, genotypic values, phenotypic values, 
-  # and mean phenotypic values
+  # and mean phenotypic values as data.frames
   list(
     var_comp = var_comp,
-    geno_val = geno_val,
-    pheno_val = p,
+    geno_val = g_df,
+    pheno_val = p_df,
     pheno_mean = mu_p
   )
   

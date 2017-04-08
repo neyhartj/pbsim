@@ -47,7 +47,7 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
     stop("The input 'genome' must be of class 'genome.'")
   
   # Check the pedigree
-  if (!check_pedigree(ped, ignore_sex = TRUE))
+  if (!check_pedigree(pedigree, ignore_sex = TRUE))
     stop("The pedigree is not formatted correctly.")
   
   # Verify the founder genotypes
@@ -68,7 +68,7 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
     stop("The input 'founder_geno' must be encoded in z {0, 1, 2}.")
   
   # Are the number of founders correct vis a vis the pedigree?
-  if (n.founders != sum(pedigree[,5] == 0))
+  if (n.founders != sum(pedigree$gen == 0))
     stop("The number of founders in the inpute 'fouders' is not equal to the
          number of founders in the 'pedigree.'")
   
@@ -79,7 +79,7 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
   
   
   # Extract the individual ids of the finals
-  final.id <- pedigree[,1][pedigree[,5] == max(pedigree[,5])]
+  final.id <- subset(pedigree, gen == max(gen))$id
   
   # Extract the map
   map <- genome$map
