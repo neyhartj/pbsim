@@ -47,7 +47,202 @@ calc_genoval <- function(genome, geno) {
   colnames(geno_val1) <- paste("trait", seq(ncol(geno_val1)), sep = "")
   
   # Return the matrix
-  return(geno_val1)
+  return(as.data.frame(geno_val1))
   
 } # Close the function
+
+
+#' Simulate phenotypic data
+#' 
+#' @description 
+#' Simulates phenotypic observations given the genotypic value of individuals and the 
+#' heritability of a quantitative trait.
+#' 
+#' @param pop An object of class \code{pop}.
+#' @param h2 The heritability of the trait or traits. May be a numeric vector of 
+#' length 1 (heritability is the same for all traits) or a numeric vector of 
+#' length n_trait. 
+#' @param n.env The number of environments in which to phenotype.
+#' @param n.rep The number of replicates of each individual in each environment.
+#' @param ... Other arguments. See \code{Details}.
+#' 
+#' @details
+#' Other arguments that can be specified are :
+#' \itemize{
+#'   \item{\code{V_E}: The variance of environmental effects. May be a numeric vector of 
+#' length 1 (V_E is the same for all traits) or a numeric vector of length n_trait. }
+#'   \item{\code{V_R}: The variance of the residual effects.May be a numeric vector of 
+#' length 1 (V_R is the same for all traits) or a numeric vector of length n_trait. }
+#'   }
+#' 
+#' Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
+#' where \code{V_E} is the environmental variance. If \code{V_E} is not provided, it 
+#' is 8 times the genotypic variance. Residual effects are drawn from a normal distribution 
+#' such that \eqn{\epsilon ~ N(0, V_R)}, where \code{V_R} is the residual variance.
+#' If \code{V_R} is not provided, it is calculated from \code{h2}, where
+#' 
+#' \eqn{V_R = n.rep * n.env * (\frac{Vg}{h2} - Vg)}.
+#' 
+#' @return 
+#' An object of class \code{pop} with all information in the input \code{pop} object,
+#' plus simulated phenotypes.
+#' 
+#' @examples 
+#' 
+#' # Load some historic data
+#' data("s2_cap_genos")
+#' data("s2_snp_info")
+#' 
+#' # Create a genome with genetic architecture
+#' len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
+#' n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
+#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' 
+#' genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+#' 
+#' # Simulate a a trait with 15 QTL
+#' qtl.model <- matrix(nrow = 15, ncol = 4)
+#' 
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+#' 
+#' # Add QTL to the geno matrix
+#' new_geno <- fill_qtl_geno(genome = genome, geno = s2_cap_genos)
+#' 
+#' pop <- create_pop(genome = genome, geno = new_geno)
+#' 
+#' pop <- sim_phenoval(pop = pop, h2 = 0.5)
+#' 
+#' @importFrom tibble rownames_to_column
+#' @import tidyr
+#' @import dplyr
+#' 
+#' @export 
+#' 
+sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
+  # Make sure pop inherits the class "pop"
+  if (!inherits(pop, "pop"))
+    stop("The input 'pop' must be of class 'pop'.")
+  
+  # Grab the genotypic values
+  geno_val <- pop$geno_val
+  
+  # Does the pop object have genotypic values
+  if (is.null(geno_val))
+    stop("The 'pop' object must have the data.frame of genotypic values")
+  
+  # Number of traits
+  n_trait <- ncol(geno_val)
+  
+  # Capture the other arguments
+  other.args <- list(...)
+  
+  # Other variances
+  V_E <- other.args$V_E
+  V_R <- other.args$V_R
+  
+  # If the h2 vector is longer than 1, the length must be the same as the number
+  # of traits
+  if (length(h2) > 1 & length(h2) != n_trait)
+    stop("The length of h2, if not 1, must be the same as the number of traits.")
+  
+  # The same goes for V_E and V_R - this will pass if both or either are NULL.
+  if (length(V_E) > 1 & length(V_E) != n_trait)
+    stop("The length of V_E, if not 1, must be the same as the number of traits.")
+  
+  if (length(V_R) > 1 & length(V_R) != n_trait)
+    stop("The length of h2, if not 1, must be the same as the number of traits.")
+  
+  
+  # Heritability must be between 0 and 1
+  if (!all(h2 >= 0, h2 <= 1))
+    stop("Heritability must be between 0 and 1.")
+  
+
+  # If this list is not empty, make sure that the elements are correctly named
+  if (length(other.args) != 0)
+    # Warn if both are not provided
+    if (!all(c("V_E", "V_R") %in% names(other.args)))
+      warning("V_E and V_R might have been passed, but were not detected. Check 
+              your arguments.")
+  
+  # Calculate genetic variance for each trait
+  V_G <- geno_val %>% 
+    summarize_each(funs(var))
+  
+  # Calculate environment variance if not provided
+  if (is.null(V_E))
+    V_E <- V_G * 8
+  
+  
+  # Calculate residual variance if not provided
+  if (is.null(V_R)) 
+    V_R <- n.rep * n.env * ((V_G / h2) - V_G)
+
+  
+  # Number of individuals
+  n_ind <- nind(pop)
+  
+  # List of variance components
+  var_comp <- list(V_G = V_G, V_E = V_E, V_R = V_R)
+  
+  # Generate environment effects
+  e <- lapply(V_E, sqrt) %>% 
+    lapply(rnorm, n = n.env, mean = 0) %>%
+    lapply(matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = T)
+  
+  # Generate residual effects
+  epsilon <- lapply(V_R, sqrt) %>% 
+    lapply(rnorm, n = n.env * n.rep * n_ind, mean = 0) %>%
+    lapply(matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = T)
+    
+  g <- pop$geno_val
+  
+  # Apply over all of the list
+  p <- mapply(g, e, epsilon, FUN = function(g1, e1, ep) {
+    
+    # Sum
+    p <- structure(g1 + e1 + ep, dimnames = list(indnames(pop),
+                                   paste( paste("env", seq(n.env), sep = ""), 
+                                          rep(paste("rep", seq(n.rep), sep = ""), 
+                                              each = n.env), sep = "_" )) )
+
+    # return 
+    return(p)
+    
+  }, SIMPLIFY = FALSE)
+  
+  
+  # Tidy the phenotypes
+  p_df <- mapply(names(p), p, FUN = function(tr, ph)
+    data.frame(ph, trait = tr), SIMPLIFY = FALSE) %>%
+    lapply(tibble::rownames_to_column, "ind") %>%
+    bind_rows()
+  
+  # Further tidying the phenotypes
+  p_df1 <- p_df %>% 
+    gather(obs, phenoval, -ind, -trait) %>%
+    separate(col = obs, into = c("env", "rep"), sep = "_", remove = TRUE)
+  
+  # Calculate the mean phenotypic value
+  mu_p <- p_df1 %>% 
+    group_by(ind, trait) %>% 
+    summarize(pheno_mean = mean(phenoval)) %>% 
+    spread(trait, pheno_mean) %>%
+    as.data.frame()
+  
+  # Add data to the pop object
+  pheno_val <- list(
+    var_comp = var_comp,
+    pheno_obs = p_df1,
+    pheno_mean = mu_p
+  )
+  
+  pop[["pheno_val"]] <- pheno_val
+  
+
+  # Return the pop
+  return(pop)
+  
+} # Close the function
+

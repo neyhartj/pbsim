@@ -478,6 +478,10 @@ adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
   if (!check_geno(genome = genome, geno = geno))
     stop("The geno did not pass. See warning for reason.")
   
+  # Make sure the genome has a genetic model
+  if (is.null(genome$gen_model))
+    stop("The 'genome' must have a genetic model. Use 'sim_gen_model' to create one.")
+  
   # If the geno input is a list, recombine
   if (is.list(geno))
     geno <- do.call("cbind", geno)

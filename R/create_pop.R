@@ -20,13 +20,15 @@
 #' An object of class \code{pop} with genotype information for the individuals in
 #' that population and the genotypic value of those individuals.
 #' 
+#' The genotypic value of individuals is calculcated as the sum of the QTL effects
+#' carried by each individual. The genetic variance is calculated as the variance
+#' of these genotypic values (\eqn{V_G = var(g)}).
+#' 
 #' @examples 
 #' 
 #' # Load some historic data
-#' data("s2_genos")
+#' data("s2_cap_genos")
 #' data("s2_snp_info")
-#' 
-#' geno <- s2_genos + 1
 #' 
 #' # Create a genome with genetic architecture
 #' len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
@@ -41,7 +43,7 @@
 #' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
 #' 
 #' # Add QTL to the geno matrix
-#' new_geno <- fill_qtl_geno(genome = genome, geno = geno)
+#' new_geno <- fill_qtl_geno(genome = genome, geno = s2_cap_genos)
 #' 
 #' pop <- create_pop(genome = genome, geno = new_geno)
 #' 
