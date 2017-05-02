@@ -49,4 +49,3 @@ founder_geno <- sim_founders(genome)
 fam <- sim_family(genome, ped, founder_geno)
  
 }
-

@@ -3,7 +3,7 @@
 # Let's try to speed this up using rQTL and simcross
 # library(qtl)
 library(simcross)
-library(qgsim)
+library(pbsim)
 library(dplyr)
 library(stringr)
 
@@ -80,14 +80,28 @@ genos <- lapply(X = cross.pairs, FUN = function(cross) {
 
 
 
+# Attempt to force a cross object
+library(qtl)
+library(pbsim)
 
 
+# Simulate a genome and genetic model
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
 
+genome <- sim_genome(len, n.mar)
 
+na_mat <- matrix(nrow = 15, ncol = 4)
 
+qtl.model <- list(na_mat, na_mat)
+add.dist <- "geometric"
+prob.corr <- c(0.5, 0.1, 0.1, 0.1, 0.2)
 
+genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
 
 
+cross <- sim.cross(map = genome$map, model = genome$gen_model[[1]], n.ind = 100,
+                   type = "bcsft", cross.scheme = c(0, 4))
 
 
 
@@ -95,111 +109,226 @@ genos <- lapply(X = cross.pairs, FUN = function(cross) {
 
 
 
+# Reorder based on chromosome, then position
+qtl_specs1 <- lapply(qtl_specs1, function(mat) {
+  mat1 <- mat[order(mat[,1], mat[,2]),]
+  # Remove row names
+  row.names(mat1) <- NULL
+  # Return the matrix
+  return(mat1) })
 
+# Determine if any QTL line up exactly on marker positions
+qtl_specs2 <- lapply(X = qtl_specs1, FUN = function(qtlmod) {
+  perf.snp <- apply(X = qtlmod, MARGIN = 1, FUN = function(qtl) qtl[2] %in% genome$map[qtl[1]])
+  cbind(qtlmod, perf.snp) })
 
+## Check two or more qtl models for common QTL
+plei <- vector("list", length(qtl_specs2))
 
+# Iterate over all qtl models
+for (i in seq_along(qtl_specs2)) {
+  
+  x <- qtl_specs2[[i]]
+  
+  # Iterate over remaining qtl models
+  plei[[i]] <- sapply(X = qtl_specs2[-i], FUN = function(y)
+    apply(X = x, MARGIN = 1, FUN = function(qtl1) 
+      any(apply(X = y, MARGIN = 1, FUN = function(qtl2) 
+        qtl1[1] == qtl2[1] & qtl1[2] == qtl2[2] ))))
+  
+}
 
+# Add peiotropy info to the genetic models
+qtl_specs3 <- mapply(qtl_specs2, plei, FUN = function(mod, pl) {
+  plei.qtl <- rowSums(pl)
+  cbind(mod, plei.qtl) }, SIMPLIFY = FALSE)
 
-# Document and install
-if(basename(getwd()) == "quantgen") setwd("..")
-devtools::document("quantgen")
-devtools::install("quantgen")
 
 
-# quantgen sandbox
-library(quantgen)
+## Testing genotype filling
+data("s2_genos")
+data("s2_snp_info")
 
-n.chr = 10
-chr.len = seq(1.0, 1.45, by = 0.05)
-chr.snps = sample(15:20, size = 10, replace = T)
+library(GSSimTPUpdate)
 
+data("CAP.haploids")
+data("CAP.markers")
 
-# Make a genome
-test.genome <- make.genome(n.chr = n.chr, chr.len = chr.len, chr.snps = chr.snps)
+line_names <- row.names(CAP.haploids) %>%
+  str_replace(".[1-2]$", "") %>%
+  unique()
 
-n.qtl = 50
-genome.object <- test.genome
-qtl.ind = NULL
-qtl.add.eff = "geometric"
-qtl.dom.eff = NULL
-qtl.dom.ind = NULL
+split_vec <- split(x = seq(nrow(CAP.haploids)), f = cut(seq(nrow(CAP.haploids)), breaks = nrow(CAP.haploids) / 2))
 
-# Assign QTL
-test.genome <- trait.architecture(genome.object = test.genome, n.qtl = 50)
+CAP_geno <- lapply(split_vec, function(ind) CAP.haploids[ind,]) %>%
+  lapply(colSums) %>%
+  do.call("rbind", .)
 
-genome.object <- test.genome
+row.names(CAP_geno) <- line_names
 
-# Create two founder genotypes
-founders <- make.founders(genome.object = test.genome)
+s6_cap_genos <- CAP_geno
+s6_snp_info <- CAP.markers %>% 
+  mutate(chrom = str_c(chrom, "H"), cM_pos = pos * 100, rs = as.character(rs)) %>% 
+  select(-pos) %>%
+  tbl_df
 
-hap.genome1 <- founders[1,]
-hap.genome2 <- founders[2,]
+# Grab map positions for markers in s6 from the s2 data.frame
+s6_snp_info <- s6_snp_info %>%
+  mutate(cM_pos = ifelse(rs %in% s2_snp_info$rs, s2_snp_info$cM_pos[match(rs, s2_snp_info$rs)], cM_pos))
 
-mutate = T
-mu.snp = 7e-8
-mu.qtl = 7e-8
+map <- s6_snp_info %>% 
+  split(.$chrom) %>% 
+  lapply(FUN = function(chr)
+    structure(chr$cM_pos, names = as.matrix(chr$rs), class = "A") )
 
-# Recombine
-new.gamete <- recombine(genome.object = genome.object, hap.genome1 = hap.genome1,
-                        hap.genome2 = hap.genome2, mutate = T, mu.snp = mu.snp, mu.qtl = mu.qtl)
 
+s6_snp_info$cM_pos <- do.call("c", new_map)
+
+    
+s2_cap_genos <- s2_genos
+
+
+
+## Common markers
+
+
+
+
 
+# geno <- s2_genos + 1
+# 
+# # Create a genome with genetic architecture
+# len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
+# n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
+# map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
 
+geno <- s6_cap_genos
 
+len <- tapply(s6_snp_info$cM_pos, s6_snp_info$chrom, max)
+n_mar <- tapply(s6_snp_info$cM_pos, s6_snp_info$chrom, length)
+map <- lapply(split(s6_snp_info, s6_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
 
+genome <- sim_genome(len = len, n.mar = n_mar, map = map)
 
+na_mat <- matrix(nrow = 5, ncol = 4)
 
+qtl.model <- list(na_mat, na_mat)
+add.dist <- "geometric"
+prob.corr <- cbind(c(2, 5, 10), c(0.7, 0.2, 0.1))
 
+## Test various genetic architectures for genetic correlation between traits
+test_cor <- replicate(n = 100, expr = {
+  
+  genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, 
+                          prob.corr = prob.corr)
+  
+  new_geno <- fill_qtl_geno(genome = genome, geno = geno)
+  
+  # edit the genome
+  genome <- adj_gen_model(genome = genome, geno = new_geno, pos.cor = FALSE)
+  
+  # Create pop
+  pop <- create_pop(genome = genome, geno = new_geno)
+  
+  c(par = cor(pop$geno_val[,"trait1"], pop$geno_val[,"trait2"]))
+  
+})
+  
+  
+  # ## Create a population
+  # cross <- qtl::sim.cross(map = genome$map, n.ind = 1000, type = "riself")
+  # 
+  # prog_geno <- lapply(cross$geno, FUN = "[[", "data") %>% do.call("cbind", .)
+  # 
+  # par_geno <- pop$geno %>% 
+  #   do.call("cbind", .) %>%
+  #   as.data.frame() %>% 
+  #   sample_n(size = 2) %>% 
+  #   as.matrix()
+  # 
+  # prog_geno_recode <- t(apply(X = prog_geno, MARGIN = 1, FUN = function(gen)
+  #   par_geno[cbind(gen, seq(ncol(prog_geno)))] )) %>%
+  #   structure(., dimnames = list(NULL, colnames(par_geno)))
+  # 
+  # prog_qtl <- pull_genotype(genome = genome, geno = prog_geno_recode, loci = qtl$qtl_name)
+  # 
+  # prog_val <- calc_genoval(genome = genome, geno = prog_geno_recode)
+  # 
+  # c(par = cor(pop$geno_val[,"trait1"], pop$geno_val[,"trait2"]),
+  #   prog = cor(prog_val[,"trait1"], prog_val[,"trait2"]) )
+  
+  c(par = cor(pop$geno_val[,"trait1"], pop$geno_val[,"trait2"]))
+  
+  }, simplify = FALSE)
 
+# For each QTL, find the correlation of that QTL's genotype with the closest QTL
+# of the other trait
+qtl_cor <- subset(genome$gen_model[[2]], select = c(qtl_name, qtl1_pair)) %>% 
+  apply(MARGIN = 1, FUN = list) %>% 
+  unlist(recursive = F) %>% 
+  lapply(pull_genotype, genome = genome, geno = pop$geno) %>%
+  lapply(cor)
 
-#### Benchmarking ####
+qtl_temp <- pull_genotype(genome = genome, geno = pop$geno, 
+                          loci = unlist(genome$gen_model[[2]][1,5:6]))
 
-rec.prof <- lineprof(recombine(genome.object = genome.object, hap.genome1 = hap.genome1,
-                               hap.genome2 = hap.genome2, mutate = T, mu.snp = mu.snp, mu.qtl = mu.qtl)
-)
 
 
 
 
 
+# What is the correlation between marker genotypes as a function of genetic distance?
+## Pairwise correlation between markers on the same chromosome
+marker_cor <- s6_cap_genos %>%
+  split_geno(genome = genome) %>%
+  lapply(cor) %>%
+  lapply(FUN = function(corr) corr[lower.tri(corr)])
 
+# Pairwise distance between markers on the same chromosome
+marker_dist <- map %>% 
+  lapply(dist) %>%
+  lapply(as.numeric)
 
+# Bind
+cor_by_dist <- data.frame(marker_cor = unlist(marker_cor), 
+                          marker_dist = unlist(marker_dist))
 
-## 3 chromosome of lengths 1, 1.1, and 1.2 M and 100 SNP each
-genome.hypred <- hypredGenome(num.chr = 3, len.chr = c(1.0, 1.1, 1.2), num.snp.chr = 100)
 
-genome.quantgen <- make.genome(n.chr = 3, chr.len = c(1.0, 1.1, 1.2), chr.snps = c(100, 100, 100))
+    
 
-## produce two haploid founder line genomes
-founder <- make.founders(genome.object = genome.quantgen)
+temp <- marker_cor$`1H` %>% .[lower.tri(.)]  
+temp1 <- marker_dist$`1H` %>% as.numeric()
 
-# Create 1000 gametes
-system.time(gametes.hypred <- replicate(10000, hypredRecombine(genome.hypred, genomeA = founder[1,], genomeB = founder[2,], mutate = T, mutation.rate.snp = 7e-8, mutation.rate.qtl = 7e-8, block = FALSE)))
-system.time(gametes.quantgen <- replicate(10000, recombine(genome.quantgen, founder[1,], founder[2,], mutate = T, mu.snp = 7e-8, mu.qtl = 7e-8)))
+      
+## Playing with Meiosis package
+library(Meiosis)
 
+n_marker <- pbsim::nmar(genome, by.chr = T)
 
+xoparam <- create_xoparam(L = genome$len)
+positions <- lapply(seq_len(nchr(genome)), function(i) sort(runif(n_marker[i], min = 0, max = genome$len[i])))
 
-print(gamete)
 
+ind <- replicate(2L, lapply(nmar(genome), function(n) sample(c(0L, 1L), n, replace = TRUE)), 
+                 simplify = FALSE)  ## simulate some genotypic data
 
+p_geno <- Meiosis::cross_geno(father = ind, mother = ind, positions = positions, 
+                              xoparam = xoparam)
 
-n.iter = 10000
 
-system.time( 
-  { empty <- vector("numeric", n.iter)
-  for (i in 1:n.iter) {
-    empty[[i]] <- rnorm(n = 1)
-  }
-  })
 
 
 
 
-## BSL examples
-library(BreedingSchemeLanguage)
 
-species <- defineSpecies(nSim = 1, nCore = 1, nChr = 7, lengthChr = 150, effPopSize = 100,
-                         nMarkers = 5000, nQTL = 100, propDomi = 0, nEpiLoci = 0)
+
+
+
+
+
+
+
+
 
 
 

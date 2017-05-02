@@ -32,4 +32,3 @@ individual that has undergone an additional generation of inbreeding.}
 Takes genptype information, a crossing block, and other parameters to
 create multiple inbred families into one population.
 }
-

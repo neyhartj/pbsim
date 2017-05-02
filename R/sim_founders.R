@@ -1,4 +1,4 @@
-#' Simulate founders for a 
+#' Simulate founders
 #' 
 #' @description
 #' Simulates the SNP genotype states for a set of founders. This is a simple wrapper of 
@@ -30,9 +30,6 @@
 #' 
 #' # Simulate a quantitative trait influenced by 50 QTL
 #' genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
-#' 
-#' # Simulate a pedigree
-#' ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
 #' 
 #' # Simulate the founder genotypes
 #' founder_geno <- sim_founders(genome)

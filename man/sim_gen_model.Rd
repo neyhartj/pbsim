@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_gen_model.R
 \name{sim_gen_model}
 \alias{sim_gen_model}
-\title{Define the genetic model of a trait}
+\title{Define the genetic model of one or more traits}
 \usage{
 sim_gen_model(genome, qtl.model, ...)
 }
@@ -14,8 +14,12 @@ a different QTL. The first column gives the chromosome number, the second
 column gives marker index, the third column gives the additive effect of
 the favorable QTL allele (\code{a}) and the fourth column gives the dominance
 effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
-randomly assigned based on the number of rows in the matrix. See \code{Details}
-for more information.}
+randomly assigned based on the number of rows in the matrix. If the genetic 
+architecture of multiple traits is desired, a list of length \code{n_trait}
+of \code{qtl.model} matrices can be provided. See \code{Details} for more 
+information.}
+
+\item{...}{Other arguments. See \code{Details} for more information.}
 }
 \value{
 A \code{genome} object with added information for the gentic model.
@@ -37,21 +41,38 @@ of \code{-a}. If dominance is absent, the genotypic value of heterozygotes is
 be larger that \code{a} or smaller than \code{-a} (overdominance). The genotypic
 value of heterozygotes at the QTL is \code{d}.
 
-If the \code{qtl.model} imput is completely NA, the following rules apply:
+Other arguments include:
 \itemize{
-  \item{QTL positions are randomly drawn, with no regard to uniformity
-  over chromosomes.}
-  \item{The distribution of additive effects must be provided. This can
-  be included as an additional argument: \code{add.dist = "normal"} or
-  \code{add.dist = "geometric"}. For a distribution of \code{"normal"},
-  additive effects are generated via the \code{\link[stats]{rnorm}} function.
+  \item{\code{add.dist}: The distribution of additive effects of QTL (if additive 
+  effects are not provided in the \code{qtl.model} input). Can be 
+  \code{"normal"} or \code{"geometric"}. For a 
+  distribution of \code{"normal"}, additive effects are generated via the 
+  \code{\link[stats]{rnorm}} function.
   For a distribution of \code{"geometric"}, additive effects are calculated for
   the k-th QTL as \eqn{a^k} where \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is 
   the number of QTL (Lande and Thompson, 1990).}
-  \item{Dominance effects are assumed to be zero, but can be simulated
-  with the optional argument: \code{dom.dist = "normal"}. Currently, only
-  normal distributions are supported.}
-  }
+  \item{\code{dom.dist}: The distribution of dominance effects of QTL (if dominance
+  effects are not provided in the \code{qtl.model} input). Can be 
+  \code{"normal"} for normally-distributed dominance effects.}
+  \item{\code{prob.corr}: A matrix of two columns defining the probabilities
+  that QTL for two or more traits are in some form that might confer genetic 
+  correlation. The first column sets the maximum distance between a QTL from 
+  a second trait and a QTL from the first trait, and the second column is the
+  probability that QTL from a second trait have that maximum distance. Pleiotropic
+  QTL can be simulated by providing a 0 in the first column, and no genetic 
+  linkage is simulated if 50 is in the first column.}
+}
+
+Also note the following rules that apply when the \code{qtl.model} input is 
+completely NA:
+\itemize{
+  \item{QTL positions are randomly drawn, with no regard to uniformity
+  over chromosomes.}
+  \item{The genetic architecture of multiple traits can be simulated by providing
+  a list of \code{qtl.model} matrices. The length of this list will be the number
+  of traits. The same rules apply for each \code{qtl.model} matrix. Pleitropy 
+  can be simulated by designating QTL at the same location in the genome.}
+}
 }
 \examples{
 n.mar  <- c(505, 505, 505)
@@ -60,13 +81,27 @@ len <- c(120, 130, 140)
 genome <- sim_genome(len, n.mar)
 
 chromosome <- c(1, 1, 2, 2, 3, 3)
-index <- c(100, 200, 150, 300, 50, 400)
+pos <- as.numeric(sapply(X = genome$len, FUN = runif, n = 2, min = 0))
 a <- c(1, 0.25, 0.5, 0.25, 0.25, 0.5)
 d <- 0
 
-qtl.model <- cbind(chromosome, index, a, d)
+qtl.model <- cbind(chromosome, pos, a, d)
 
 genome <- sim_gen_model(genome, qtl.model)
 
-}
+# Randomly generate 15 QTL with additive allelic effects following a
+# genometric series
+qtl.model <- matrix(nrow = 15, ncol = 4)
 
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+
+# Randomly generate 15 QTL for each of two traits. 50\% of the QTL are pleiotropic
+na_mat <- matrix(nrow = 15, ncol = 4)
+
+qtl.model <- list(na_mat, na_mat)
+add.dist <- "geometric"
+prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
+
+genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
+ 
+}

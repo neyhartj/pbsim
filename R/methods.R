@@ -1,19 +1,22 @@
-#' Summary
+#' Summarize a genome object
+#' 
+#' @param x An object of class \code{genome}.
+#' 
 #' @export
 #' 
 summary.genome <- function(x) {
   
   # Extract information
-  n.chr <- length(x$len)
+  n_chr <- nchr(x)
   len <- x$len
-  n.mar <- x$n.mar
+  n_mar <- nmar(x, by.chr = TRUE)
   gen_model <- x$gen_model
   
   # Show
   cat("\nGenome summary \n\n")
-  cat("Number of chromosomes: ", n.chr, "\n")
+  cat("Number of chromosomes: ", n_chr, "\n")
   cat("Length of chromosomes (in cM): ", len, "\n")
-  cat("Markers per chromosome: ", n.mar, "\n")
+  cat("Markers per chromosome: ", n_mar, "\n")
   
   # Report the genetic model
   if (is.null(gen_model)) {
@@ -21,22 +24,35 @@ summary.genome <- function(x) {
     
   } else {
     
-    n.qtl <- nrow(gen_model)
-    qtl.chr <- table(gen_model$chr)
+    # Number of traits
+    n_trait <- length(gen_model)
+    cat("\nNumber of traits with genetic models: ", n_trait, "\n")
     
-    cat("\nGenetic model summary\n")
-    cat("Number of QTL: ", n.qtl, "\n")
-    cat("QTL per chromosome: ", qtl.chr, "\n") 
-    cat("Distribution of additive effects:\n")
-    print(summary(gen_model$add.eff))
-    cat("Distribution of dominance effects: \n")
-    print(summary(gen_model$dom.eff))
+    # Iterate over traits
+    for (t in seq(n_trait)) {
+      
+      cat("\nSummary for trait: ", t, "\n")
+      
+      n_qtl <- nrow(gen_model[[t]])
+      qtl_chr <- table(gen_model[[t]][,1])
+
+      cat("Number of QTL: ", n_qtl, "\n")
+      cat("QTL per chromosome: ", qtl_chr, "\n") 
+      cat("Distribution of additive effects:\n")
+      print(summary(gen_model[[t]][,3]))
+      cat("Distribution of dominance effects: \n")
+      print(summary(gen_model[[t]][,4]))
+      
+    }
     
   }
   
 }
 
-#' Print
+#' Printing genomes
+#' 
+#' @rdname summary.genome
+#' 
 #' @export
 #' 
 print.genome <- function(x) summary(x)

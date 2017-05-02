@@ -2,11 +2,18 @@
 % Please edit documentation in R/methods.R
 \name{summary.genome}
 \alias{summary.genome}
-\title{Summary}
+\alias{print.genome}
+\title{Summarize a genome object}
 \usage{
 \method{summary}{genome}(x)
+
+\method{print}{genome}(x)
+}
+\arguments{
+\item{x}{An object of class \code{genome}.}
 }
 \description{
-Summary
-}
+Summarize a genome object
 
+Printing genomes
+}

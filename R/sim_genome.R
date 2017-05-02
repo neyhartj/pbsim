@@ -59,7 +59,7 @@ sim_genome <- function(len, n.mar, map = NULL, eq.spacing = FALSE) {
     
     # First check that the markers are named
     if (any(sapply(map, function(m) is.null(names(m)))))
-      stop("Marker positions in the inpute 'map' must be named.")
+      stop("Marker positions in the input 'map' must be named.")
     
     # Next, check that the length of each chromosome in the map is within the
     # chromosome length set by 'len'
@@ -71,6 +71,12 @@ sim_genome <- function(len, n.mar, map = NULL, eq.spacing = FALSE) {
     if (!all(mapply(n.mar, map, FUN = function(n, m) length(m) == n)))
       stop("The number of loci in 'map' is not equal to the number of 
            markers specified in 'n.mar.'")
+    
+    # Make sure the map has the chromosome class attribute
+    map <- lapply(map, structure, class = "A")
+    # Reclass the map
+    class(map) <- "map"
+    
   }
   
   # Assemble the genome

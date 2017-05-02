@@ -68,4 +68,3 @@ founder_geno <- sim_founders(genome)
 phenos <- sim_pheno(genome, founder_geno, h2 = 0.5)
 
 }
-

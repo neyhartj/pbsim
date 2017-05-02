@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_founders.R
 \name{sim_founders}
 \alias{sim_founders}
-\title{Simulate founders for a}
+\title{Simulate founders}
 \usage{
 sim_founders(object, n.str = c("2", "4", "8"), pat.freq)
 }
@@ -40,11 +40,7 @@ genome <- sim_genome(len, n.mar)
 # Simulate a quantitative trait influenced by 50 QTL
 genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
 
-# Simulate a pedigree
-ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
-
 # Simulate the founder genotypes
 founder_geno <- sim_founders(genome)
 
 }
-

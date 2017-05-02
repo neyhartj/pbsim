@@ -32,4 +32,3 @@ len <- c(120, 130, 140)
 genome <- sim_genome(len, n.mar)
 
 }
-

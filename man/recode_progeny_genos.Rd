@@ -10,4 +10,3 @@ recode_progeny_genos(genome, progeny.genos, founder.genos)
 Recodes progeny genotypes to z {0, 1, 2} format based on the genotypes
 of inbred founder lines.
 }
-
