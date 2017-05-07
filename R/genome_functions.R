@@ -100,6 +100,7 @@ nchr <- function(genome) {
 } # Close the function
 
 
+
 #' Extract chromosome names
 #' 
 #' @param genome An object of class \code{genome}.
@@ -344,7 +345,7 @@ nloci <- function(genome, by.chr = FALSE) {
 #' Find the position of markers in the genome
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param chr See \code{\link[qtl]{find.markerpos}}.
+#' @param marker See \code{\link[qtl]{find.markerpos}}.
 #' 
 #' @importFrom qtl sim.cross
 #' @importFrom qtl find.markerpos
@@ -364,6 +365,142 @@ find_markerpos <- function(genome, marker) {
   qtl::find.markerpos(cross = blank_cross, marker = marker)
   
 } # Close the function
+
+
+
+#' Find the position of markers near a locus
+#' 
+#' @description 
+#' Finds the position of markers near a particular locus. By default, the function
+#' returns the flanking markers, however markers within a certain range can also
+#' be returned.
+#' 
+#' @param genome An object of class \code{genome}.
+#' @param marker See \code{\link[qtl]{find.markerpos}}.
+#' @param ... Additional arguments. Markers within a position range of \code{marker}
+#' can be specified using the \code{min.dist} (returns markers at \code{min.dist}
+#' from \code{marker}) and \code{max.dist} (returns markers no more than \code{min.dist}
+#' from \code{marker}).
+#' 
+#' @importFrom qtl map2table
+#' @importFrom qtl sim.cross
+#' @importFrom qtl chrlen
+#' @importFrom qtl find.flanking
+#' 
+#' @export
+#' 
+find_proxmarkers <- function(genome, marker, ...) {
+  
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Are 'marker' in the total marker names?
+  if (!all(marker %in% markernames(genome = genome, include.qtl = TRUE)))
+    stop("The markers in 'marker' are not in the genome.")
+  
+  # Extract the other arguments
+  other.args <- list(...)
+  
+  min.dist <- other.args$min.dist
+  max.dist <- other.args$max.dist
+  
+  # Find the position of the marker
+  marker_pos <- find_markerpos(genome = genome, marker = marker)
+  
+  # Create a blank cross
+  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
+  # Find the length of each chromosome
+  chr_len <- qtl::chrlen(object = blank_cross)
+
+  
+  ## Are min.dist and max.dist both NULL?
+  # If so, return flanking markers
+  if (all(is.null(min.dist), is.null(max.dist))) {
+    
+    # Find flanking markers to the left
+    left_flanking <- qtl::find.flanking(cross = blank_cross, chr = marker_pos$chr,
+                                        pos = marker_pos$pos - 1e-8)
+    
+    # Find flanking markers to the right
+    right_flanking <- qtl::find.flanking(cross = blank_cross, chr = marker_pos$chr,
+                                         pos = marker_pos$pos + 1e-8)
+    
+    # Rename and return
+    flanking_pos <- data.frame(marker = marker, left = left_flanking$left, 
+                               right = right_flanking$right, row.names = NULL)
+    
+    return(flanking_pos)
+    
+  } else if (is.null(max.dist)) {
+    
+    # Find all markers on the chromosome at least min.dist away
+    
+    # First declare the range of positions in which the markers can be
+    lower_range <- data.frame(chr = marker_pos$chr, min = 0, 
+                              max = marker_pos$pos - min.dist)
+    
+    upper_range <- data.frame(chr = marker_pos$chr, min = marker_pos$pos + min.dist,
+                              max = chr_len[marker_pos$chr])
+    
+  } else if (is.null(min.dist)) {
+    # Find markers within the maximum distance
+    
+    lower_range <- data.frame(chr = marker_pos$chr, min = marker_pos$pos - max.dist, 
+                              max = marker_pos$pos)
+    
+    upper_range <- data.frame(chr = marker_pos$chr, min = marker_pos$pos,
+                              max = marker_pos$pos + max.dist)
+    
+  } else {
+    
+    # Find markers in the min/max range 
+    
+    lower_range <- data.frame(chr = marker_pos$chr, min = marker_pos$pos - max.dist, 
+                              max = marker_pos$pos - min.dist)
+    
+    upper_range <- data.frame(chr = marker_pos$chr, min = marker_pos$pos + min.dist,
+                              max = marker_pos$pos + max.dist)
+    
+  }
+    
+  # List of marker names
+  lower_mar <- upper_mar <- vector("list", nrow(marker_pos))
+  
+  # Iterate over markers
+  for (i in 1:nrow(marker_pos)) {
+    range_mar <- subset(x = qtl::map2table(map = genome$map, chr = lower_range$chr[i]), 
+                        subset = pos >= lower_range$min[i] & pos <= lower_range$max[i]) 
+    # Add the row.names
+    lower_mar[[i]] <- row.names(range_mar)
+  }
+    
+  # Iterate over markers
+  for (i in 1:nrow(marker_pos)) {
+    range_mar <- subset(x = qtl::map2table(map = genome$map, chr = upper_range$chr[i]), 
+                        subset = pos >= upper_range$min[i] & pos <= upper_range$max[i]) 
+    # Add the row.names
+    upper_mar[[i]] <- row.names(range_mar)
+  }
+  
+  # Combine
+  prox_mar <- structure(mapply(lower_mar, upper_mar, FUN = c, SIMPLIFY = FALSE),
+                        names = marker)
+  
+  # Return
+  return(prox_mar)
+    
+} # Close the function
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   

@@ -34,6 +34,9 @@
 #' # Simulate the founder genotypes
 #' founder_geno <- sim_founders(genome)
 #' 
+#' @importFrom qtl sim.cross
+#' @importFrom qtl pull.map
+#' 
 #' @export
 #' 
 sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
@@ -49,7 +52,6 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
     stop("'object' must be of class 'genome' or 'map.'")
     
   }
-
   
   ## Borrowed from simFounderSnps
   if (is.numeric(n.str)) 

@@ -7,6 +7,7 @@ vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+bibliography: C:/Users/Jeff/Documents/Literature/library.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +16,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-This markdown file outlines the preparation of BOPA SNP genotype data from the 183 members of the S2 training population
+This markdown file outlines the preparation of BOPA SNP genotype data two barley populations:
+
+- Spring two-row from 5 U.S. breeding programs (n = 183)
+- Spring six-row from 2 U.S. breeding programs (n = 768)
 
 ```{r libraries}
 
@@ -61,7 +65,13 @@ identical.columns <- function(input.matrix) {
 
 ## Data Acquisition
 
-The data were acquired from T3 and downloaded without any filters
+The data were acquired from T3 and downloaded without any filters.
+
+
+Two maps were downloaded for all SNPs
+
+- 2009 consensus map from @Close2009
+- 2011 consensus map from @Munoz-Amatriain2011
 
 ## Processing
 
@@ -207,4 +217,79 @@ s2_snp_info <- snp_info4
 
 ```
 
+### Genetic Maps
 
+For both the `s2_snp_info` map and the `s6_snp_info` map, we will take the markers,
+find their positions on the @Close2009 map, then create second maps in a list
+
+Unanchored markers in the Close map will be given the same chromosome as in the MA map, however with a position of 0
+
+```{r map.adj}
+
+data("s2_snp_info")
+data("s6_snp_info")
+
+# Read in the Close 2009 map
+close_map <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/Unfiltered/geneticMap_Close2009.txt", skip = 1, col_names = c("rs", "chrom", "cM_pos"))
+
+# Calculate cM position from the hecto-Morgan positions given
+close_map1 <- close_map %>%
+  mutate(cM_pos = cM_pos / 1000)
+
+# Find the positions of the markers in the s2_snp_info and s6_snp_info map in the close_map
+s2_snp_info_Close09 <- inner_join(x = close_map1, y = select(s2_snp_info, rs, alleles))
+
+s6_snp_info_Close09 <- inner_join(x = close_map1, y = select(s6_snp_info, rs, alleles))
+
+# Find the chromosome of the unanchored in the MA map
+s2_unanchored <- s2_snp_info_Close09 %>%
+  filter(chrom == "UNK") %>%
+  left_join(y = s2_snp_info, by = c("rs" = "rs", "alleles" = "alleles"))
+s6_unanchored <- s6_snp_info_Close09 %>%
+  filter(chrom == "UNK") %>%
+  left_join(y = s6_snp_info, by = c("rs" = "rs", "alleles" = "alleles"))
+
+# Add those chromosomes in
+s2_snp_info_Close09 <- s2_snp_info_Close09 %>% 
+  mutate(chrom = ifelse(rs %in% s2_unanchored$rs, s2_unanchored$chrom.y, chrom)) %>%
+  select(rs, alleles, chrom, cM_pos) %>%
+  arrange(chrom, cM_pos)
+  
+s6_snp_info_Close09 <- s6_snp_info_Close09 %>% 
+  mutate(chrom = ifelse(rs %in% s6_unanchored$rs, s6_unanchored$chrom.y, chrom)) %>%
+  select(rs, alleles, chrom, cM_pos) %>%
+  arrange(chrom, cM_pos)
+
+
+# Extract the maps and jitter with R/qtl
+s2_map <- s2_snp_info_Close09 %>% 
+  split(.$chrom) %>% 
+  lapply(function(chr) structure(chr$cM_pos, names = chr$rs, class = "A")) %>% 
+  structure(class = "map")
+
+s2_map_jitter <- qtl::jittermap(s2_map)
+
+# Extract the maps and jitter with R/qtl
+s6_map <- s6_snp_info_Close09 %>% 
+  split(.$chrom) %>% 
+  lapply(function(chr) structure(chr$cM_pos, names = chr$rs, class = "A")) %>% 
+  structure(class = "map")
+
+s6_map_jitter <- qtl::jittermap(s6_map)
+
+
+# Add the positions back into map
+s2_snp_info_Close09 <- s2_snp_info_Close09 %>% 
+  mutate(cM_pos = unlist(s2_map_jitter))
+
+s6_snp_info_Close09 <- s6_snp_info_Close09 %>% 
+  mutate(cM_pos = unlist(s6_map_jitter))
+
+
+```
+
+
+
+
+
+## References

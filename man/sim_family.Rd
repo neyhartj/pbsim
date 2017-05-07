@@ -12,11 +12,14 @@ sim_family(genome, pedigree, founder_geno, ...)
 \item{pedigree}{An object of class \code{pedigree} detailing the scheme to 
 develop the family.}
 
-\item{founder_geno}{A list of the same length as there are chromosomes in the 
-\code{genome}. Each element should be a matrix with \code{n.founder} rows and \code{n.mar}
-columns with founder genotypes. Must be coded as z = {0, 1, 2}.}
+\item{founder_geno}{A matrix of dimension \code{n.founder} rows and \code{n.mar}
+columns with founder genotypes. Must be coded as z = {0, 1, 2}. Can also be a list
+of such matrices, where each matrix is the genotypic data from a chromosome.}
 
 \item{...}{Additional arguments. See \code{Details}.}
+}
+\value{
+An object of class \code{pop}.
 }
 \description{
 Simulate a family from a pedigree
@@ -31,21 +34,4 @@ Other arguments can be passed to internal functions in \code{sim_family}:
   \item{\code{family.num}: A integer designator of the family.}
   \item{\code{cycle.num}: A integer designator of the breeding cycle.}
 }
-}
-\examples{
-# Simulate a genome
-n.mar  <- c(505, 505, 505)
-len <- c(120, 130, 140)
-
-genome <- sim_genome(len, n.mar)
-
-# Simulate a pedigree
-ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
-
-# Simulate the founder genotypes
-founder_geno <- sim_founders(genome)
-
-# Create the family
-fam <- sim_family(genome, ped, founder_geno)
- 
 }

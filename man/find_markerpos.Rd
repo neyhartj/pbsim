@@ -9,7 +9,7 @@ find_markerpos(genome, marker)
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{chr}{See \code{\link[qtl]{find.markerpos}}.}
+\item{marker}{See \code{\link[qtl]{find.markerpos}}.}
 }
 \description{
 Find the position of markers in the genome
