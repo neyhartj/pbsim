@@ -123,6 +123,7 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
   # Add row and column names
   dimnames(geno) <- list(founder_names, mar_names)
   
-  return(geno)
-  
+  # Create the pop object and return
+  create_pop(genome = genome, geno = geno)
+
 } # Close the function

@@ -22,15 +22,10 @@
 #' 
 fill_qtl_geno <- function(genome, geno) {
   
-  # Make sure genome inherits the class "genome."
-  if (!inherits(genome, "genome"))
-    stop("The input 'genome' must be of class 'genome.'")
-  
-  # The geno input should have n_marker columns
-  if (ncol(geno) != nmar(genome) )
-    stop("The number of markers in the 'geno' input is not equal to the number
-         of markers in the genome.")
-  
+  # Check the genome and geno
+  if (!check_geno(genome = genome, geno = geno))
+    stop("The geno did not pass. See warning for reason.")
+
   ## Find the flanking markers of all of the QTL
   # First create a blank cross object
   blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
@@ -38,6 +33,12 @@ fill_qtl_geno <- function(genome, geno) {
   # Pull the unique QTL
   unique_qtl <- pull_qtl(genome)
   
+  # Are all of the QTL names markernames? If so, return the genos with a warning
+  if (all(unique_qtl$qtl_name %in% markernames(genome))) {
+    warning("All of the QTL are SNP markers in the genome. The 'geno' has been returned edited.")
+    return(geno)
+  }
+
   # Vector of chromosomes of QTL
   chr <- chrnames(genome)[unique_qtl$chr]
   

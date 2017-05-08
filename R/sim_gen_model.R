@@ -463,11 +463,18 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
                                            min.dist = min_dist, max.dist = max_dist)
               
               # For each of those markers, sample the proximal markers
-              prox_mar_sample <- sapply(prox_mar, sample, size = 1)
+              prox_mar_sample <- sapply(X = prox_mar, FUN = function(px)
+                ifelse(length(px) == 0, NA, sample(px, 1)))
+              
+              # Create an empty data.frame
+              marker_sample_pos <- as.data.frame(matrix(data = NA, nrow = length(prox_mar_sample),
+                                                        ncol = 3, 
+                                                        dimnames = list(NULL, c("chr", "pos", "marker"))))
                 
               # Get the positions of those markers
-              marker_sample_pos <- find_markerpos(genome = genome, marker = prox_mar_sample) %>%
-              mutate(marker = row.names(.))
+              marker_sample_pos[!is.na(prox_mar_sample),] <- 
+                find_markerpos(genome = genome, marker = na.omit(prox_mar_sample)) %>%
+                mutate(marker = row.names(.))
               
             }
             
