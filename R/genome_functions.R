@@ -1,3 +1,64 @@
+#' Summarize a genome object
+#' 
+#' @param x An object of class \code{genome}.
+#' 
+#' @export
+#' 
+summary.genome <- function(x) {
+  
+  # Extract information
+  n_chr <- nchr(x)
+  len <- x$len
+  n_mar <- nmar(x, by.chr = TRUE)
+  gen_model <- x$gen_model
+  
+  # Show
+  cat("\nGenome summary \n\n")
+  cat("Number of chromosomes: ", n_chr, "\n")
+  cat("Length of chromosomes (in cM): ", len, "\n")
+  cat("Markers per chromosome: ", n_mar, "\n")
+  
+  # Report the genetic model
+  if (is.null(gen_model)) {
+    cat("\nGenetic model summary: No genetic model")
+    
+  } else {
+    
+    # Number of traits
+    n_trait <- length(gen_model)
+    cat("\nNumber of traits with genetic models: ", n_trait, "\n")
+    
+    # Iterate over traits
+    for (t in seq(n_trait)) {
+      
+      cat("\nSummary for trait: ", t, "\n")
+      
+      n_qtl <- nrow(gen_model[[t]])
+      qtl_chr <- table(gen_model[[t]][,1])
+      
+      cat("Number of QTL: ", n_qtl, "\n")
+      cat("QTL per chromosome: ", qtl_chr, "\n") 
+      cat("Distribution of additive effects:\n")
+      print(summary(gen_model[[t]][,3]))
+      cat("Distribution of dominance effects: \n")
+      print(summary(gen_model[[t]][,4]))
+      
+    }
+    
+  }
+  
+}
+
+#' Printing genomes
+#' 
+#' @rdname summary.genome
+#' 
+#' @export
+#' 
+print.genome <- function(x) summary(x)
+
+
+
 #' Extract the number of markers in the genome
 #' 
 #' @param genome An object of class \code{genome}.
@@ -17,11 +78,20 @@ nmar <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Create an empty cross object
-  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
+  # All marker names
+  marker_names <- lapply(genome$map, names)
+  
+  # Get the markernames, exclude QTL if necessary
+  if (!is.null(genome$gen_model)) {
+    # Get QTL names
+    qtl_names <- qtlnames(genome)
+    
+    marker_names <- lapply(X = marker_names, FUN = setdiff, y = qtl_names)
+    
+  }
   
   # Number of markers
-  n_marker <- qtl::nmar(blank_cross)
+  n_marker <- sapply(X = marker_names, FUN = length)
   
   # If by.chr is true, give results by chromosome. If not, sum
   if (by.chr) {
@@ -54,25 +124,29 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Create an empty cross object
-  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
-  
   # If chr is missing, assume all chromosomes
   if (missing(chr)) {
-    chr <- qtl::chrnames(blank_cross)
+    chr <- chrnames(genome)
   }
   
+  # Get all loci names
+  locinames <- lapply(X = genome$map, FUN = names)
+  
   if (!include.qtl) {
-    # Get marker names and return
-    qtl::markernames(cross = blank_cross, chr = chr)
+    # Get the qtl names
+    qtl_names <- qtlnames(genome)
+    
+    # Remove QTL
+    marker_names <- lapply(X = locinames, setdiff, y = qtl_names)
   
   } else {
     # Otherwise grab the names from the map
-    locinames <- lapply(genome$map, names)
-    # What chromosomes to return?
-    structure(unlist(locinames[chr]), names = NULL)
+    marker_names <- lapply(genome$map, names)
     
   }
+  
+  # What chromosomes to return?
+  structure(unlist(marker_names[chr]), names = NULL)
   
 } # Close function
   
@@ -126,6 +200,31 @@ chrnames <- function(genome, chr) {
   
 } # Close function
 
+
+#' Extract the length of chromosomes
+#' 
+#' @param genome An object of class \code{genome}.
+#' 
+#' @return 
+#' A vector of chromosome lengths.
+#' 
+#' @importFrom qtl chrnames
+#' 
+#' @export
+#' 
+#' 
+chrlen <- function(genome) {
+  
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  qtl::chrlen(genome$map)
+  
+} # Close the function
+
+
+
 #' Extract the QTL from a genome
 #' 
 #' @param genome An object of class \code{genome}.
@@ -149,8 +248,7 @@ pull_qtl <- function(genome, unique = TRUE) {
   all_qtl <- genome$gen_model %>% 
     mapply(seq_along(.), FUN = function(qtlmod, traitn) 
       mutate(qtlmod, trait = traitn), SIMPLIFY = FALSE) %>%
-    bind_rows() %>% 
-    mutate(chr = factor(chr, levels = seq_along(genome$map)))
+    bind_rows()
   
   if (unique) {
     return(distinct(all_qtl, chr, pos, .keep_all = TRUE))
@@ -198,6 +296,42 @@ nqtl <- function(genome, by.chr = FALSE) {
     return(sum(qtl_count))
   }
   
+} # Close the function
+
+
+
+#' Extract the names of QTL in the genome
+#' 
+#' @param genome An object of class \code{genome}.
+#' 
+#' @details
+#' Only unique QTL are counted. That is, pleiotropic QTL only count once.
+#' 
+#' @return 
+#' If \code{by.chr = TRUE}, a vector of the QTL names.
+#' 
+#' @export
+#' 
+qtlnames <- function(genome, chr) {
+  
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Make sure there is a genetic model
+  if (is.null(genome$gen_model))
+    stop("No genetic model has been declared for the genome")
+  
+  # If chr is missing, assume all chromosomes
+  if (missing(chr)) {
+    chr <- chrnames(genome)
+  }
+  
+  # Get the QTL names
+  all_qtl <- pull_qtl(genome, unique = FALSE)
+  # Return
+  subset(x = all_qtl, chr %in% chr, qtl_name, drop = TRUE)
+
 } # Close the function
 
 
@@ -313,6 +447,7 @@ pull_perf_mar <- function(genome, by.chr = FALSE) {
 #' @param genome An object of class \code{genome}.
 #' @param by.chr Logical. Should the number of loci per chromosome be returned?
 #' 
+#' @export
 #' 
 nloci <- function(genome, by.chr = FALSE) {
   
@@ -325,17 +460,9 @@ nloci <- function(genome, by.chr = FALSE) {
   
   # Number of unique QTL
   n_qtl <- nqtl(genome = genome, by.chr = by.chr)
-  
-  # Number of perfect markers
-  perf_mar <- pull_perf_mar(genome = genome, by.chr = FALSE) %>%
-    filter(!startsWith(perf_mar, "QTL"))
-  nperf_mar <- table(perf_mar$chr)
-  # Sum if prompted
-  if (!by.chr)
-    nperf_mar <- sum(nperf_mar)
-  
+
   # Total number of loci is n_marker + n_qtl - nperf_mar
-  n_loci <- n_marker + n_qtl - nperf_mar
+  n_loci <- n_marker + n_qtl
   return(n_loci)
   
 } # Close the function

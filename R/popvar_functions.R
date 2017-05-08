@@ -22,7 +22,7 @@ geno_to_popvar <- function(genome, geno) {
   # Get the individual names from the geno
   ind_names <- row.names(geno)
   # Marker names
-  marker_names <- markernames(genome)
+  marker_names <- markernames(genome, include.qtl = FALSE)
   
   # Is the length of the marker names the same as the columns in 'geno'?
   # If not, subset the geno for markers, not QTL

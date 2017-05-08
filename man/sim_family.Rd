@@ -4,19 +4,17 @@
 \alias{sim_family}
 \title{Simulate a family from a pedigree}
 \usage{
-sim_family(genome, pedigree, founder_geno, ...)
+sim_family(genome, pedigree, founder_pop, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{pedigree}{An object of class \code{pedigree} detailing the scheme to 
-develop the family.}
+\item{pedigree}{A \code{pedigree} detailing the scheme to develop the family.
+Use \code{\link{sim_pedigree}} to generate.}
 
-\item{founder_geno}{A matrix of dimension \code{n.founder} rows and \code{n.mar}
-columns with founder genotypes. Must be coded as z = {0, 1, 2}. Can also be a list
-of such matrices, where each matrix is the genotypic data from a chromosome.}
-
-\item{...}{Additional arguments. See \code{Details}.}
+\item{founder_pop}{An object of class \code{pop} with the geno information for
+the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
+object.}
 }
 \value{
 An object of class \code{pop}.
@@ -26,12 +24,51 @@ Simulate a family from a pedigree
 }
 \details{
 Other arguments can be passed to internal functions in \code{sim_family}:
-\itemize{
-  \item{\code{m}: The crossover interference parameter. See 
+\describe{
+  \item{\code{dh}}{A logical indicating if double-haploid lines should be created
+  at the end of selfing. Doubled-haploids are generated at the last generation
+  of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
+  lines are induced after the \emph{F_2}).}
+  \item{\code{m}}{The crossover interference parameter. See 
   \code{\link[simcross]{sim_from_pedigree}} for more information. }
-  \item{\code{p}: The proportion of crosses from non-interference process.
+  \item{\code{p}}{The proportion of crosses from non-interference process.
   See \code{\link[simcross]{sim_from_pedigree}} for more information.}
-  \item{\code{family.num}: A integer designator of the family.}
-  \item{\code{cycle.num}: A integer designator of the breeding cycle.}
+  \item{\code{family.num}}{A integer designator of the family.}
+  \item{\code{cycle.num}}{A integer designator of the breeding cycle.}
 }
+}
+\examples{
+
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+
+# Simulate the founder genotypes
+founder_pop <- sim_founders(genome)
+
+# Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+
+# Create a pedigree with 100 RIL individuals
+ped <- sim_pedigree(n.ind = 100, n.selfgen = Inf)
+
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+
+# Create a pedigree with 100 doubled-haploid individuals induced after the F_2
+# generation.
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop,
+                  dh = TRUE)
+
+ 
 }

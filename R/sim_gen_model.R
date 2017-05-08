@@ -267,7 +267,7 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
         stop("The argument 'de.novo' is FALSE, but the max.qtl argument was not provided.")
       
       # Sample marker names to become QTL
-      marker_sample <- sample(x = markernames(genome), size = max.qtl)
+      marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = max.qtl)
       
       # Get the positions of those markers
       marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
@@ -391,7 +391,8 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
             } else {
               # Else if de.novo is FALSE
               # Randomly draw markers to be QTL, excluding those already designated as QTL
-              avail_markers <- setdiff(markernames(genome), unlist(lapply(qtl_specs, "[[", "marker_name")))
+              avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
+                                       unlist(lapply(qtl_specs, "[[", "marker_name")))
               
               marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
 
@@ -514,7 +515,8 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
           
           # Else if de.novo is FALSE
           # Randomly draw markers to be QTL, excluding those already designated as QTL
-          avail_markers <- setdiff(markernames(genome), unlist(lapply(qtl_specs, "[[", "qtl_name")))
+          avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
+                                   unlist(lapply(qtl_specs, "[[", "qtl_name")))
           
           marker_sample <- sample(x = avail_markers, size = sum(is.na(qtl_specs[[t]]$qtl_name)))
           
@@ -559,7 +561,8 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
   
   # Add the genetic model to the genome
   genome[["gen_model"]] <- qtl_specs %>%
-    lapply(arrange, chr, pos)
+    lapply(arrange, chr, pos) %>%
+    lapply(mutate, chr = factor(chr, levels = names(genome$map)))
   
   ## Add names of QTL if not present
   # Pull out all QTL

@@ -13,7 +13,7 @@ bibliography: C:/Users/Jeff/Documents/Literature/library.bib
 
 ## Introduction
 
-The `pbsim` package includes a suite of functions for simulating plant breeding programs. The motivation behind this package was to develope a set of tools that would make it simple to simulate plent breeding programs in order to test various methods or procedures. The package is on the simpler side of population genetics simulation tools, however it is nonetheless useful for quick experimentation.
+The `pbsim` package includes a suite of functions for simulating plant breeding programs. The motivation behind this package was to develop a set of tools that would make it simple to simulate plent breeding programs in order to test various methods or procedures. The package is on the simpler side of population genetics simulation tools, however it is nonetheless useful for quick experimentation.
 
 The first step of using the package is to load it using the `library()` function:
 

@@ -62,7 +62,7 @@ sim_pedigree <- function(n.ind, bcpar, n.bcgen = 0, n.selfgen = Inf) {
     n.selfgen <- 0
     
   } else {
-    selfing <- "partal"
+    selfing <- "partial"
     
   }
     

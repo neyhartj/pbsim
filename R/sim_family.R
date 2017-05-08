@@ -1,26 +1,62 @@
 #' Simulate a family from a pedigree
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param pedigree An object of class \code{pedigree} detailing the scheme to 
-#' develop the family.
-#' @param founder_geno A matrix of dimension \code{n.founder} rows and \code{n.mar}
-#' columns with founder genotypes. Must be coded as z = {0, 1, 2}. Can also be a list
-#' of such matrices, where each matrix is the genotypic data from a chromosome.
-#' @param ... Additional arguments. See \code{Details}. 
+#' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
+#' Use \code{\link{sim_pedigree}} to generate.
+#' @param founder_pop An object of class \code{pop} with the geno information for
+#' the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
+#' object.
 #' 
 #' @details 
 #' Other arguments can be passed to internal functions in \code{sim_family}:
-#' \itemize{
-#'   \item{\code{m}: The crossover interference parameter. See 
+#' \describe{
+#'   \item{\code{dh}}{A logical indicating if double-haploid lines should be created
+#'   at the end of selfing. Doubled-haploids are generated at the last generation
+#'   of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
+#'   lines are induced after the \emph{F_2}).}
+#'   \item{\code{m}}{The crossover interference parameter. See 
 #'   \code{\link[simcross]{sim_from_pedigree}} for more information. }
-#'   \item{\code{p}: The proportion of crosses from non-interference process.
+#'   \item{\code{p}}{The proportion of crosses from non-interference process.
 #'   See \code{\link[simcross]{sim_from_pedigree}} for more information.}
-#'   \item{\code{family.num}: A integer designator of the family.}
-#'   \item{\code{cycle.num}: A integer designator of the breeding cycle.}
+#'   \item{\code{family.num}}{A integer designator of the family.}
+#'   \item{\code{cycle.num}}{A integer designator of the breeding cycle.}
 #' }
 #' 
 #' @return 
 #' An object of class \code{pop}.
+#' 
+#' @examples 
+#' 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#' 
+#' # Simulate the founder genotypes
+#' founder_pop <- sim_founders(genome)
+#' 
+#' # Create a pedigree with 100 individuals selfed to the F_3 generation
+#' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+#' 
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' 
+#' # Create a pedigree with 100 RIL individuals
+#' ped <- sim_pedigree(n.ind = 100, n.selfgen = Inf)
+#' 
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' 
+#' # Create a pedigree with 100 doubled-haploid individuals induced after the F_2
+#' # generation.
+#' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+#' 
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop,
+#'                   dh = TRUE)
 #' 
 #'  
 #' @import simcross
@@ -30,14 +66,18 @@
 #' 
 #' @export
 #' 
-sim_family <- function(genome, pedigree, founder_geno, ...) {
+sim_family <- function(genome, pedigree, founder_pop, ...) {
   
   # Error
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
+  # Founder_pop needs to be a pop object
+  if (!inherits(founder_pop, "pop"))
+    stop("The input 'founder_pop' must be of class 'pop'")
+  
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = founder_geno))
+  if (!check_geno(genome = genome, geno = founder_pop$geno))
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
@@ -45,16 +85,11 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
     stop("The pedigree is not formatted correctly.")
   
   
-  # If the geno input is a list, recombine
-  if (is.list(founder_geno))
-    founder_geno <- do.call("cbind", founder_geno)
+  # Combine the founder geno input
+  founder_geno <- do.call("cbind", founder_pop$geno)
   
   # How many founders?
   n_founders <- nrow(founder_geno)
-  
-  # Are the founders coded correctly?
-  if (!all(unlist(founder_geno) %in% c(0, 1, 2)))
-    stop("The input 'founder_geno' must be encoded in z {0, 1, 2}.")
   
   # Are the number of founders correct vis a vis the pedigree?
   if (n_founders != sum(pedigree$gen == 0))
@@ -71,8 +106,7 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
   final_id <- subset(pedigree, gen == max(gen))$id
   
   # Extract the map
-  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
-  map <- qtl::pull.map(cross = blank_cross)
+  map <- genome$map
   
   # Parse other arguments
   other.args <- list(...)
@@ -85,6 +119,9 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
   family_num <- ifelse(is.null(other.args$family.num), 1, other.args$family.num)
   cycle_num <- ifelse(is.null(other.args$cycle.num), 1, other.args$cycle.num)
   
+  # For doubled-haploids
+  dh <- ifelse(is.null(other.args$dh), FALSE, other.args$dh)
+  
   # If selfing is partial, using simcross
   selfing <- attr(pedigree, "selfing")
   
@@ -93,8 +130,13 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
     # Generate cross-over data
     xo_data <- sim_from_pedigree_allchr(pedigree = pedigree, map = map, m = m, p = p)
     
+    # Simulate DH if called for
+    if (dh) {
+      xo_data <- induce_dh(xodat = xo_data, pedigree = pedigree)
+    }
+    
     # Simulate genotypic data
-    prog_genos <- convert2geno_allchr(xodat = xo.data, map = map, id = final_id)
+    prog_genos <- convert2geno_allchr(xodat = xo_data, map = map, id = final_id)
     
   } else {
     
@@ -114,10 +156,13 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
     
   }
   
-  # Convert the progeny genotypes to the parental states
-  prog_genos_recode <- apply(X = rbind(founder_geno, prog_genos), MARGIN = 2, FUN = function(snp)
-    ifelse(snp[-seq(n_founders)] == 1, snp[1], ifelse(snp[-seq(n_founders)] == 3, snp[2], 1)) )
+  # Create a matrix with the founder1, het, and founder2 genotypes
+  founder_multipoint <- rbind(founder_geno[1,], colMeans(founder_geno), founder_geno[2,])
   
+  # Convert the progeny genotypes to the parental states
+  prog_genos_recode <- t(apply(X = prog_genos, MARGIN = 1, FUN = function(prog) {
+    founder_multipoint[cbind(prog, seq(nrow(founder_multipoint)))] }))
+
   # Generate new progeny names
   n_ind <- sum(pedigree[,5] == max(pedigree[,5])) # Number of individuals
   gen <- max(pedigree[,5]) # Generation number
@@ -126,7 +171,7 @@ sim_family <- function(genome, pedigree, founder_geno, ...) {
   new_names <- str_c("C", cycle_num, "_", gen, str_pad(family_num, width = 3, pad = 0), 
                      "-", str_pad(seq_len(n_ind), width = 3, pad = 0))
   
-  row.names(prog_genos_recode) <- new_names
+  dimnames(prog_genos_recode) <- list(new_names, markernames(genome, include.qtl = TRUE))
   
   # Create the pop
   create_pop(genome = genome, geno = prog_genos_recode)

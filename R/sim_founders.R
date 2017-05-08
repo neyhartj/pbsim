@@ -29,7 +29,9 @@
 #' genome <- sim_genome(len, n.mar)
 #' 
 #' # Simulate a quantitative trait influenced by 50 QTL
-#' genome <- sim_gen_model(genome = genome, qtl.model = matrix(NA, 50, 4), add.dist = "geometric")
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
 #' 
 #' # Simulate the founder genotypes
 #' founder_geno <- sim_founders(genome)

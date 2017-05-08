@@ -40,12 +40,9 @@
 #' # Simulate a a trait with 15 QTL
 #' qtl.model <- matrix(nrow = 15, ncol = 4)
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
 #' 
-#' # Add QTL to the geno matrix
-#' new_geno <- fill_qtl_geno(genome = genome, geno = s2_cap_genos)
-#' 
-#' pop <- create_pop(genome = genome, geno = new_geno)
+#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
 #' 
 #' @import dplyr
 #' 
