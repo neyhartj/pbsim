@@ -177,3 +177,59 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
   create_pop(genome = genome, geno = prog_genos_recode)
   
 } # Close the function
+
+
+
+
+#' Simulate multiple families from a crossing block
+#' 
+#' @param genome An object of class \code{genome}.
+#' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
+#' Use \code{\link{sim_pedigree}} to generate.
+#' @param founder_pop An object of class \code{pop} with the geno information for
+#' the parents. Additional individuals can be present in \code{parent_pop}. They
+#' will be filtered according to the parents in the \code{crossing_block}.
+#' @param crossing_block A crossing block detailing the crosses to make. Must be a
+#' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
+#' second gives the name of parent 2. See \code{\link{sim_crossing_block}}.
+#' @param ... Additional arguments passed to \code{\link{sim_family}}.
+#' 
+#' @examples 
+#' 
+#' @importFrom simcross check_pedigree
+#' 
+#' @export
+#' 
+sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
+  
+  # Error habdling
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Founder_pop needs to be a pop object
+  if (!inherits(founder_pop, "pop"))
+    stop("The input 'founder_pop' must be of class 'pop'")
+  
+  # Check the genome and geno
+  if (!check_geno(genome = genome, geno = founder_pop$geno))
+    stop("The geno did not pass. See warning for reason.")
+  
+  # Check the pedigree
+  if (!check_pedigree(pedigree, ignore_sex = TRUE))
+    stop("The pedigree is not formatted correctly.")
+  
+  # Check the crossing block
+  if (ncol(crossing_block) != 2) {
+    stop("The crossing block should have two columns.")
+  } else {
+    crossing_block <- as.data.frame(crossing_block)
+  }
+  
+}
+  
+  
+  
+  
+  
+
+
