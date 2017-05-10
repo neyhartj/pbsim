@@ -29,12 +29,12 @@ heritability of a quantitative trait.
 }
 \details{
 Other arguments that can be specified are :
-\itemize{
-  \item{\code{V_E}: The variance of environmental effects. May be a numeric vector of 
+\describe{
+  \item{\code{V_E}}{The variance of environmental effects. May be a numeric vector of 
 length 1 (V_E is the same for all traits) or a numeric vector of length n_trait. }
-  \item{\code{V_R}: The variance of the residual effects.May be a numeric vector of 
+  \item{\code{V_R}}{The variance of the residual effects.May be a numeric vector of 
 length 1 (V_R is the same for all traits) or a numeric vector of length n_trait. }
-  }
+}
 
 Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
 where \code{V_E} is the environmental variance. If \code{V_E} is not provided, it 
@@ -60,12 +60,9 @@ genome <- sim_genome(len = len, n.mar = n_mar, map = map)
 # Simulate a a trait with 15 QTL
 qtl.model <- matrix(nrow = 15, ncol = 4)
 
-genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
 
-# Add QTL to the geno matrix
-new_geno <- fill_qtl_geno(genome = genome, geno = s2_cap_genos)
-
-pop <- create_pop(genome = genome, geno = new_geno)
+pop <- create_pop(genome = genome, geno = s2_cap_genos)
 
 pop <- sim_phenoval(pop = pop, h2 = 0.5)
 

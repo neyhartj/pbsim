@@ -22,9 +22,38 @@ second gives the name of parent 2. See \code{\link{sim_crossing_block}}.}
 
 \item{...}{Additional arguments passed to \code{\link{sim_family}}.}
 }
+\value{
+An object of class \code{pop} with the information for all individuals in 
+the families specified by the crossing block.
+}
 \description{
 Simulate multiple families from a crossing block
 }
 \examples{
+
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+
+# Simulate the genotypes of eight founders
+founder_pop <- sim_founders(genome, n.str = 8)
+
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+# Extract the founder names
+parents <- indnames(founder_pop)
+
+# Generate a crossing block with 5 crosses
+cb <- sim_crossing_block(parents = parents, n.crosses = 5)
+
+# Simulate the populations according to the crossing block
+pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
 
 }

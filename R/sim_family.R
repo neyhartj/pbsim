@@ -194,9 +194,39 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
 #' second gives the name of parent 2. See \code{\link{sim_crossing_block}}.
 #' @param ... Additional arguments passed to \code{\link{sim_family}}.
 #' 
+#' @return 
+#' An object of class \code{pop} with the information for all individuals in 
+#' the families specified by the crossing block.
+#' 
 #' @examples 
 #' 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#' 
+#' # Simulate the genotypes of eight founders
+#' founder_pop <- sim_founders(genome, n.str = 8)
+#' 
+#' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+#' 
+#' # Extract the founder names
+#' parents <- indnames(founder_pop)
+#' 
+#' # Generate a crossing block with 5 crosses
+#' cb <- sim_crossing_block(parents = parents, n.crosses = 5)
+#' 
+#' # Simulate the populations according to the crossing block
+#' pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
+#' 
 #' @importFrom simcross check_pedigree
+#' @import dplyr
 #' 
 #' @export
 #' 
@@ -215,7 +245,7 @@ sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
-  if (!check_pedigree(pedigree, ignore_sex = TRUE))
+  if (!simcross::check_pedigree(pedigree, ignore_sex = TRUE))
     stop("The pedigree is not formatted correctly.")
   
   # Check the crossing block
@@ -225,7 +255,24 @@ sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
     crossing_block <- as.data.frame(crossing_block)
   }
   
-}
+  # Are all of the parents in the crossing block in the founder_pop?
+  if (!all(unique(unlist(crossing_block)) %in% indnames(founder_pop)))
+    stop("Not all of the parents in the crossing block are in the 'founder_pop'.")
+  
+  # Simulate families for each cross
+  fam_cb <- crossing_block %>% 
+    # Add family number
+    mutate(fam_num = row_number()) %>%
+    rowwise() %>%
+    do(fam = {
+      founder_geno <- subset_pop(pop = founder_pop, individual = c(.$parent1, .$parent2))
+      sim_family(genome = genome, pedigree = pedigree, founder_pop = founder_geno, 
+                 family.num = .$fam_num, ... = ...) })
+  
+  # Combine the populations and return
+  combine_pop(pop_list = fam_cb$fam)
+
+} # Close the function
   
   
   

@@ -46,8 +46,8 @@ calc_genoval <- function(genome, geno) {
   # Add trait names
   colnames(geno_val1) <- paste("trait", seq(ncol(geno_val1)), sep = "")
   
-  # Return the matrix
-  return(as.data.frame(geno_val1))
+  # Convert the row.names to a column and return the data.frame
+  data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE)
   
 } # Close the function
 
@@ -67,13 +67,14 @@ calc_genoval <- function(genome, geno) {
 #' @param ... Other arguments. See \code{Details}.
 #' 
 #' @details
+#' 
 #' Other arguments that can be specified are :
-#' \itemize{
-#'   \item{\code{V_E}: The variance of environmental effects. May be a numeric vector of 
+#' \describe{
+#'   \item{\code{V_E}}{The variance of environmental effects. May be a numeric vector of 
 #' length 1 (V_E is the same for all traits) or a numeric vector of length n_trait. }
-#'   \item{\code{V_R}: The variance of the residual effects.May be a numeric vector of 
+#'   \item{\code{V_R}}{The variance of the residual effects.May be a numeric vector of 
 #' length 1 (V_R is the same for all traits) or a numeric vector of length n_trait. }
-#'   }
+#' }
 #' 
 #' Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
 #' where \code{V_E} is the environmental variance. If \code{V_E} is not provided, it 
@@ -103,16 +104,12 @@ calc_genoval <- function(genome, geno) {
 #' # Simulate a a trait with 15 QTL
 #' qtl.model <- matrix(nrow = 15, ncol = 4)
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
 #' 
-#' # Add QTL to the geno matrix
-#' new_geno <- fill_qtl_geno(genome = genome, geno = s2_cap_genos)
-#' 
-#' pop <- create_pop(genome = genome, geno = new_geno)
+#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
 #' 
 #' pop <- sim_phenoval(pop = pop, h2 = 0.5)
 #' 
-#' @importFrom tibble rownames_to_column
 #' @import tidyr
 #' @import dplyr
 #' 
@@ -132,7 +129,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     stop("The 'pop' object must have the data.frame of genotypic values")
   
   # Number of traits
-  n_trait <- ncol(geno_val)
+  n_trait <- ncol(geno_val) - 1
   
   # Capture the other arguments
   other.args <- list(...)
@@ -168,7 +165,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
   # Calculate genetic variance for each trait
   V_G <- geno_val %>% 
-    summarize_each(funs(var))
+    summarize_at(vars(-ind), var)
   
   # Calculate environment variance if not provided
   if (is.null(V_E))
@@ -196,7 +193,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     lapply(rnorm, n = n.env * n.rep * n_ind, mean = 0) %>%
     lapply(matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = T)
     
-  g <- pop$geno_val
+  g <- subset(pop$geno_val, select = -ind, drop = FALSE)
   
   # Apply over all of the list
   p <- mapply(g, e, epsilon, FUN = function(g1, e1, ep) {
@@ -215,8 +212,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
   # Tidy the phenotypes
   p_df <- mapply(names(p), p, FUN = function(tr, ph)
-    data.frame(ph, trait = tr), SIMPLIFY = FALSE) %>%
-    lapply(tibble::rownames_to_column, "ind") %>%
+    data.frame(ind = row.names(ph), trait = tr, ph), SIMPLIFY = FALSE) %>%
     bind_rows()
   
   # Further tidying the phenotypes
