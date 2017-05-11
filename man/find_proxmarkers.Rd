@@ -21,3 +21,15 @@ Finds the position of markers near a particular locus. By default, the function
 returns the flanking markers, however markers within a certain range can also
 be returned.
 }
+\examples{
+
+# Simulate the genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Sample marker names to lookup
+sample_markers <- sample(markernames(genome), size = 3)
+
+}

@@ -10,6 +10,9 @@
 #' are drawn from a uniform distribution. See \code{\link[qtl]{sim.map}} for more
 #' information.
 #' @param eq.spacing If TRUE, markers will be equally spaced. See \code{\link[qtl]{sim.map}}.
+#' @param type The type of genome output. If \code{"pbsim"}, the genome will include a 
+#' map that is compatible with \code{\link[qtl]{qtl-package}}, and if \code{"hypred"},
+#' the genome will be a list of genomes compatible with \code{\link[hypred]{hypred}}.
 #' 
 #' @return 
 #' Object of class "genome" with the length of each chromosome, the number of
@@ -21,38 +24,55 @@
 #' 
 #' genome <- sim_genome(len, n.mar)
 #' 
+#' # Use a map instead
+#' data("s2_snp_info")
+#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' 
+#' genome <- sim_genome(map = map)
+#' 
+#' # Use 'hypred'
+#' genome <- sim_genome(map = map, type = "hypred")
+#' 
 #' @importFrom qtl sim.map
+#' @import hypred
 #' 
 #' @export 
 #' 
 #' 
-sim_genome <- function(len, n.mar, map = NULL, eq.spacing = FALSE) {
+sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "hypred")) {
   
   # Error handling
-  len <- as.numeric(len)
-  n.mar <- as.numeric(n.mar)
+  # len and n.mar must be present if map is not
+  if (missing(map)) {
+    len <- as.numeric(len)
+    n.mar <- as.numeric(n.mar)
+    
+  } else {
+    
+    if (missing(len))
+      len <- sapply(map, max)
+    
+    if (missing(n.mar))
+      n.mar <- sapply(map, length)
+
+  }
+  
+  # Match the type argument
+  type <- match.arg(type)
   
   # The length of the len vector must be the same as that of n.mar
   if (length(len) != length(n.mar)) 
     stop("The length of the input 'len' vector does not equal the length of
          'n.mar.'")
-  
-  # If map is not NULL, its length must be the same as len and n.mar
-  if (!is.null(map)) {
-    if (length(len) != length(map) | length(n.mar) != length(map))
-      stop("The length of input 'map' must be the same as the length
-           of inputs 'n.mar' and 'len.'")
-    }
 
   # Create an empty list of length n.chr
-  genome <- list()
-  class(genome) <- "genome"
+  genome <- structure(vector("list"), class = "genome", type = type)
   
   # If genetic map is NULL, sample from uniform distribution
-  if (is.null(map)) {
+  if (missing(map)) {
     
     # Use R/qtl
-    map <- sim.map(len = len, n.mar = n.mar, include.x = FALSE, eq.spacing = eq.spacing)
+    map <- qtl::sim.map(len = len, n.mar = n.mar, include.x = FALSE, eq.spacing = eq.spacing)
     
     # If map is not null, check compatability
   } else {
@@ -61,30 +81,41 @@ sim_genome <- function(len, n.mar, map = NULL, eq.spacing = FALSE) {
     if (any(sapply(map, function(m) is.null(names(m)))))
       stop("Marker positions in the input 'map' must be named.")
     
-    # Next, check that the length of each chromosome in the map is within the
-    # chromosome length set by 'len'
-    if (!all(mapply(len, map, FUN = function(l, m) max(m) <= l)))
-      stop("The maximum cM position in 'map' is not less than or equal to
-           the chromosome length in 'len.'")
-    
-    # Now check that the number of markers is equal to n.mar
-    if (!all(mapply(n.mar, map, FUN = function(n, m) length(m) == n)))
-      stop("The number of loci in 'map' is not equal to the number of 
-           markers specified in 'n.mar.'")
-    
     # Make sure the map has the chromosome class attribute
     map <- lapply(map, structure, class = "A")
     # Reclass the map
     class(map) <- "map"
     
   }
+
+
+  # What type of genome was requested?
+  if (type == "pbsim") {
+    
+    # Assemble the genome
+    genome[["len"]] <- len
+    genome[["n.mar"]] <- n.mar
+    genome[["map"]] <- map
+    
+  } else {
+    
+    # Remove the map classes
+    map <- sapply(X = map, FUN = structure, class = NULL, simplify = FALSE)
+    
+    # Apply a function over the number of chromosomes
+    hypred_list <- lapply(X = map, FUN = function(chr) {
+      # Create a new base genome
+      hp_genome <- hypredGenome(num.chr = 1, len.chr = max(chr) / 100, num.snp.chr = length(chr))
+      # Add genetic map
+      hypredNewMap(hp_genome, new.map = chr / 100) })
   
-  # Assemble the genome
-  genome[["len"]] <- len
-  genome[["n.mar"]] <- n.mar
-  genome[["map"]] <- map
+    # Add this information to the genome
+    genome[["hypredGenomes"]] <- hypred_list
+    
+  }
+  
   
   # Return the genome
   return(genome)
-
-}
+  
+} # Close the function

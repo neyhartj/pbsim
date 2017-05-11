@@ -6,14 +6,19 @@
 #' 
 summary.genome <- function(x) {
   
-  # Extract information
+  # Summarize by hypred or pbsim
+  type <- attr(x, "type")
+  
   n_chr <- nchr(x)
-  len <- x$len
+  len <- chrlen(x)
   n_mar <- nmar(x, by.chr = TRUE)
+  
+  # Extract the genetic model
   gen_model <- x$gen_model
   
   # Show
   cat("\nGenome summary \n\n")
+  cat("Genome type: ", type, "\n\n")
   cat("Number of chromosomes: ", n_chr, "\n")
   cat("Length of chromosomes (in cM): ", len, "\n")
   cat("Markers per chromosome: ", n_mar, "\n")
@@ -68,8 +73,6 @@ print.genome <- function(x) summary(x)
 #' If \code{by.chr = TRUE}, a vector of markers per chromosomes. If \code{by.chr = FALSE},
 #' a scalar of the total number of markers.
 #' 
-#' @import qtl
-#' 
 #' @export
 #' 
 nmar <- function(genome, by.chr = FALSE) {
@@ -78,27 +81,43 @@ nmar <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # All marker names
-  marker_names <- lapply(genome$map, names)
+  # Extract information based on the type
+  type <- attr(genome, "type")
   
-  # Get the markernames, exclude QTL if necessary
+  if (type == "pbsim") {
+    
+    # All loci names
+    loci_names <- lapply(genome$map, names)
+    
+  } else if (type == "hypred") {
+    # Get all loci names
+    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% lapply(names)
+    
+  }
+  
+  # Get the QTL names if present
   if (!is.null(genome$gen_model)) {
     # Get QTL names
     qtl_names <- qtlnames(genome)
+    # Find the loci that are not QTL
+    marker_names <- lapply(X = loci_names, FUN = setdiff, y = qtl_names)
     
-    marker_names <- lapply(X = marker_names, FUN = setdiff, y = qtl_names)
+  } else {
+    # Otherwise all of the loci are markers
+    marker_names <- loci_names
     
   }
   
   # Number of markers
   n_marker <- sapply(X = marker_names, FUN = length)
-  
+
   # If by.chr is true, give results by chromosome. If not, sum
   if (by.chr) {
     return(n_marker)
   } else{
     return(sum(n_marker))
   }
+    
   
 } # Close the function
 
@@ -112,9 +131,7 @@ nmar <- function(genome, by.chr = FALSE) {
 #' @return 
 #' A vector of character strings (the marker names).
 #' 
-#' @importFrom qtl sim.cross
-#' @importFrom qtl markernames
-#' @importFrom qtl chrnames
+#' @import dplyr
 #' 
 #' @export
 #' 
@@ -129,22 +146,33 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
     chr <- chrnames(genome)
   }
   
-  # Get all loci names
-  locinames <- lapply(X = genome$map, FUN = names)
+  # Extract information based on the type
+  type <- attr(genome, "type")
   
-  if (!include.qtl) {
-    # Get the qtl names
-    qtl_names <- qtlnames(genome)
+  if (type == "pbsim") {
     
-    # Remove QTL
-    marker_names <- lapply(X = locinames, setdiff, y = qtl_names)
-  
-  } else {
-    # Otherwise grab the names from the map
-    marker_names <- lapply(genome$map, names)
+    # All loci names
+    loci_names <- lapply(genome$map, names)
+    
+  } else if (type == "hypred") {
+    # Get all loci names
+    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% lapply(names)
     
   }
   
+  # Get the QTL names if present
+  if (!is.null(genome$gen_model)) {
+    # Get QTL names
+    qtl_names <- qtlnames(genome)
+    # Find the loci that are not QTL
+    marker_names <- lapply(X = loci_names, FUN = setdiff, y = qtl_names)
+    
+  } else {
+    # Otherwise all of the loci are markers
+    marker_names <- loci_names
+    
+  }
+
   # What chromosomes to return?
   structure(unlist(marker_names[chr]), names = NULL)
   
@@ -158,8 +186,6 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
 #' @return 
 #' A scalar of the total number of chromosomes.
 #' 
-#' @importFrom qtl nchr
-#' 
 #' @export
 #' 
 nchr <- function(genome) {
@@ -168,8 +194,19 @@ nchr <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
+  # Extract information based on the type
+  type <- attr(genome, "type")
+  
+  if (type == "pbsim") {
+    n_chr <- length(genome$map)
+    
+  } else if (type == "hypred") {
+    n_chr <- length(genome$hypredGenomes)
+  
+  }
+  
   # Extract and return chromosomes
-  qtl::nchr(genome$map)
+  return(n_chr)
   
 } # Close the function
 
@@ -182,9 +219,6 @@ nchr <- function(genome) {
 #' @return 
 #' A vector of character strings (the chromosome names).
 #' 
-#' @importFrom qtl sim.cross
-#' @importFrom qtl chrnames
-#' 
 #' @export
 #' 
 chrnames <- function(genome, chr) {
@@ -193,10 +227,18 @@ chrnames <- function(genome, chr) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Create an empty cross object
-  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
+  # Extract information based on the type
+  type <- attr(genome, "type")
   
-  qtl::chrnames(blank_cross)
+  if (type == "pbsim") {
+    chr_names <- names(genome$map)
+    
+  } else if (type == "hypred") {
+    chr_names <- names(genome$hypredGenomes)
+    
+  }
+  
+  return(chr_names)
   
 } # Close function
 
@@ -208,8 +250,6 @@ chrnames <- function(genome, chr) {
 #' @return 
 #' A vector of chromosome lengths.
 #' 
-#' @importFrom qtl chrnames
-#' 
 #' @export
 #' 
 #' 
@@ -219,7 +259,18 @@ chrlen <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  qtl::chrlen(genome$map)
+  # Extract information based on the type
+  type <- attr(genome, "type")
+  
+  if (type == "pbsim") {
+    chr_len <- genome$len
+    
+  } else if (type == "hypred") {
+    chr_len <- sapply(genome$hypredGenomes, slot, "len.chr") * 100
+    
+  }
+  
+  return(chr_len)
   
 } # Close the function
 
@@ -280,20 +331,23 @@ nqtl <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Make sure there is a genetic model
-  if (is.null(genome$gen_model))
-    stop("No genetic model has been declared for the genome")
-  
-  # Number of unique qtl per chromosome
-  qtl_unique <- pull_qtl(genome = genome)
-  
-  qtl_count <- structure(table(qtl_unique$chr), names = names(genome$map))
+  # If there is no genetic model, there are no QTL
+  if (is.null(genome$gen_model)) {
+    n_qtl <- structure(rep(0, nchr(genome)), names = chrnames(genome))
+    
+  } else {
+    # Number of unique qtl per chromosome
+    qtl_unique <- pull_qtl(genome = genome)
+    
+    n_qtl <- structure(table(qtl_unique$chr), names = chrnames(genome))
+    
+  }
 
   # If by.chr is true, give results by chromosome. If not, sum
   if (by.chr) {
-    return(qtl_count)
+    return(n_qtl)
   } else{
-    return(sum(qtl_count))
+    return(sum(n_qtl))
   }
   
 } # Close the function
@@ -455,17 +509,86 @@ nloci <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Number of markers
-  n_marker <- nmar(genome = genome, by.chr = by.chr)
+  # Extract the type
+  type <- attr(genome, "type")
   
-  # Number of unique QTL
-  n_qtl <- nqtl(genome = genome, by.chr = by.chr)
-
-  # Total number of loci is n_marker + n_qtl - nperf_mar
-  n_loci <- n_marker + n_qtl
-  return(n_loci)
+  # Pipe by type
+  if (type == "pbsim") {
+  
+    # Use the map to determine the number of loci
+    n_loci <- sapply(map, length)
+    
+  } else if (type == "hypred") {
+    
+    # Pull out the slots
+    n_loci <- sapply(genome$hypredGenomes, slot, "num.snp.chr")
+  
+  }
+  
+  # By chromosome?
+  if (by.chr) {
+    return(n_loci)
+  } else {
+    return(sum(n_loci))
+  }
   
 } # Close the function
+
+
+#' Convert the genetic map in the genome to a table
+#' 
+#' @param genome An object of class \code{genome}.
+#' 
+#' @return 
+#' A \code{data.frame} with two columns: chromosome name and position, with row names
+#' equal to marker names
+#' 
+#' @import dplyr
+#' 
+#' @export
+#' 
+map_to_table <- function(genome) {
+  
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Extract the type
+  type <- attr(genome, "type")
+  
+  # Pipe by type
+  if (type == "pbsim") {
+    
+    pos_df <- lapply(X = genome$map, structure, class = NULL) %>% 
+      lapply(FUN = as.data.frame) %>% 
+      lapply(structure, names = "pos") %>% 
+      mapply(chrnames(genome), FUN = function(pos, chrname)
+        data.frame(chr = chrname, pos, stringsAsFactors = FALSE), SIMPLIFY = FALSE) %>%
+      do.call("rbind", .)
+    
+    row.names(pos_df) <- markernames(genome, include.qtl = TRUE)
+    
+  } else if (type == "hypred") {
+    
+    # Create a data.frame of chr and pos
+    pos_df <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% 
+      lapply(FUN = as.data.frame) %>% 
+      lapply(structure, names = "pos") %>%
+      mapply(chrnames(genome), FUN = function(pos, chrname)
+        data.frame(chr = chrname, pos * 100, stringsAsFactors = FALSE), SIMPLIFY = FALSE) %>%
+      do.call("rbind", .)
+    
+    row.names(pos_df) <- markernames(genome, include.qtl = TRUE)
+    
+  }
+  
+  # Return the data.frame
+  return(pos_df)
+  
+}
+  
+  
+
 
 
 
@@ -474,22 +597,19 @@ nloci <- function(genome, by.chr = FALSE) {
 #' @param genome An object of class \code{genome}.
 #' @param marker See \code{\link[qtl]{find.markerpos}}.
 #' 
-#' @importFrom qtl sim.cross
-#' @importFrom qtl find.markerpos
+#' @import dplyr
 #' 
 #' @export
 #' 
 find_markerpos <- function(genome, marker) {
   
-  # Make sure genome inherits the class "genome."
-  if (!inherits(genome, "genome"))
-    stop("The input 'genome' must be of class 'genome.'")
+  # Convert the map to a table
+  pos_df <- map_to_table(genome)
+
+  # Subset the data.frame for the marker
+  marker_pos <- pos_df[marker,, drop = FALSE]
   
-  # Create a blank cross object
-  blank_cross <- sim.cross(map = genome$map, n.ind = 1)
-  
-  # Return marker position
-  qtl::find.markerpos(cross = blank_cross, marker = marker)
+  return(marker_pos)
   
 } # Close the function
 
@@ -509,6 +629,17 @@ find_markerpos <- function(genome, marker) {
 #' from \code{marker}) and \code{max.dist} (returns markers no more than \code{min.dist}
 #' from \code{marker}).
 #' 
+#' @examples 
+#' 
+#' # Simulate the genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Sample marker names to lookup
+#' sample_markers <- sample(markernames(genome), size = 3)
+#' 
 #' @importFrom qtl map2table
 #' @importFrom qtl sim.cross
 #' @importFrom qtl chrlen
@@ -526,6 +657,9 @@ find_proxmarkers <- function(genome, marker, ...) {
   if (!all(marker %in% markernames(genome = genome, include.qtl = TRUE)))
     stop("The markers in 'marker' are not in the genome.")
   
+  # Extract the type
+  type <- attr(genome, "type")
+  
   # Extract the other arguments
   other.args <- list(...)
   
@@ -535,27 +669,28 @@ find_proxmarkers <- function(genome, marker, ...) {
   # Find the position of the marker
   marker_pos <- find_markerpos(genome = genome, marker = marker)
   
-  # Create a blank cross
-  blank_cross <- qtl::sim.cross(map = genome$map, n.ind = 1)
-  # Find the length of each chromosome
-  chr_len <- qtl::chrlen(object = blank_cross)
-
-  
   ## Are min.dist and max.dist both NULL?
   # If so, return flanking markers
   if (all(is.null(min.dist), is.null(max.dist))) {
     
-    # Find flanking markers to the left
-    left_flanking <- qtl::find.flanking(cross = blank_cross, chr = marker_pos$chr,
-                                        pos = marker_pos$pos - 1e-8)
-    
-    # Find flanking markers to the right
-    right_flanking <- qtl::find.flanking(cross = blank_cross, chr = marker_pos$chr,
-                                         pos = marker_pos$pos + 1e-8)
-    
-    # Rename and return
-    flanking_pos <- data.frame(marker = marker, left = left_flanking$left, 
-                               right = right_flanking$right, row.names = NULL)
+    # Iterate over the markers
+    flanking_pos <- marker_pos %>% 
+      mutate(marker = row.names(.)) %>% 
+      group_by(marker) %>% 
+      do({
+        
+        # Markers in the chr
+        chr_markers <- markernames(genome, chr = .$chr)
+        # Find the position of the marker on the map      
+        map_ind <- match(.$marker, chr_markers)
+        # Find the position of the marker to the left and right
+        left_marker <- ifelse(map_ind == 1, NA, chr_markers[map_ind - 1])
+        right_marker <- chr_markers[map_ind + 1]
+        # Return data.frame
+        data.frame(left = left_marker, right = right_marker, stringsAsFactors = FALSE)
+        
+      }) %>%
+      as.data.frame()
     
     return(flanking_pos)
     
@@ -594,18 +729,22 @@ find_proxmarkers <- function(genome, marker, ...) {
   # List of marker names
   lower_mar <- upper_mar <- vector("list", nrow(marker_pos))
   
+  # Convert the map to a table
+  snp_table <- map_to_table(genome)
+  
   # Iterate over markers
   for (i in 1:nrow(marker_pos)) {
-    range_mar <- subset(x = qtl::map2table(map = genome$map, chr = lower_range$chr[i]), 
-                        subset = pos >= lower_range$min[i] & pos <= lower_range$max[i]) 
+    range_mar <- subset(snp_table, chr == lower_range$chr[i] & pos >= lower_range$min[i] & pos <= lower_range$max[i])
+    
     # Add the row.names
     lower_mar[[i]] <- row.names(range_mar)
   }
     
   # Iterate over markers
   for (i in 1:nrow(marker_pos)) {
-    range_mar <- subset(x = qtl::map2table(map = genome$map, chr = upper_range$chr[i]), 
-                        subset = pos >= upper_range$min[i] & pos <= upper_range$max[i]) 
+    
+    range_mar <- subset(snp_table, chr == upper_range$chr[i] & pos >= upper_range$min[i] & pos <= upper_range$max[i])
+    
     # Add the row.names
     upper_mar[[i]] <- row.names(range_mar)
   }

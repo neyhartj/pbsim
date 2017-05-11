@@ -27,6 +27,7 @@ This markdown file outlines the preparation of BOPA SNP genotype data two barley
 library(tidyverse)
 library(stringr)
 library(qtl)
+library(pbsim)
 
 # Define a function to take a matrix and compare all columns and return an index of the identical columns
 identical.columns <- function(input.matrix) {
@@ -67,7 +68,6 @@ identical.columns <- function(input.matrix) {
 
 The data were acquired from T3 and downloaded without any filters.
 
-
 Two maps were downloaded for all SNPs
 
 - 2009 consensus map from @Close2009
@@ -75,11 +75,14 @@ Two maps were downloaded for all SNPs
 
 ## Processing
 
+### Two Row Barley Data
 
 
 ```{r process}
 
-# Read in the data
+
+
+# Read in the data ### EDIT THIS ###
 s2_genos <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/Unfiltered/genotype.hmp.txt")
 
 # Extract the metadata (map, chromosome, etc)
@@ -210,9 +213,58 @@ s2_genos_imputed <- s2_genos_mat6 %>%
     snp[is.na(snp)] <- mean_geno
     return(snp) })
 
-s2_genos <- s2_genos_imputed
+s2_cap_genos <- s2_genos_imputed + 1
 
 s2_snp_info <- snp_info4
+
+# Convert the genotypes to an array of haploid chromosomes
+s2_cap_haploid <- split(s2_cap_genos, 1:nrow(s2_cap_genos), drop = FALSE) %>%
+  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+
+# Empty array
+s2_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s2_cap_genos), length(s2_cap_haploid)),
+                              dimnames = list(NULL, colnames(s2_cap_genos), row.names(s2_cap_genos)))
+
+for (k in seq_along(s2_cap_haploid)) {
+  s2_cap_haploid_array[,,k] <- s2_cap_haploid[[k]]
+}
+
+
+# Rename
+s2_cap_haploid <- s2_cap_haploid_array
+
+
+### REMOVE THIS ###
+devtools::use_data(s2_cap_genos, s2_snp_info, s2_cap_haploid, overwrite = T)
+
+
+```
+
+### Six-Row Barley Data
+
+Direct to previous package
+
+```{r}
+
+data("s6_cap_genos")
+
+# Convert the genotypes to an array of haploid chromosomes
+s6_cap_haploid <- split(s6_cap_genos, 1:nrow(s6_cap_genos), drop = FALSE) %>%
+  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+
+# Empty array
+s6_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s6_cap_genos), length(s6_cap_haploid)),
+                              dimnames = list(NULL, colnames(s6_cap_genos), row.names(s6_cap_genos)))
+
+for (k in seq_along(s6_cap_haploid)) {
+  s6_cap_haploid_array[,,k] <- s6_cap_haploid[[k]]
+}
+
+
+# Rename
+s6_cap_haploid <- s6_cap_haploid_array
+
+devtools::use_data(s6_cap_genos, s6_snp_info, s6_cap_haploid, overwrite = T)
 
 
 ```
@@ -284,6 +336,8 @@ s2_snp_info_Close09 <- s2_snp_info_Close09 %>%
 
 s6_snp_info_Close09 <- s6_snp_info_Close09 %>% 
   mutate(cM_pos = unlist(s6_map_jitter))
+
+devtools::use_data(s2_snp_info_Close09, s6_snp_info_Close09, overwrite = T)
 
 
 ```
