@@ -119,6 +119,8 @@ genotype <- function(genome, pop, error.rate = 0) {
 #' 
 #' individual <- c("2ND27380", "06WA-406.6")
 #' 
+#' pop_subset <- subset_pop(pop = pop, individual = individual)
+#' 
 #' @import dplyr
 #' 
 #' @export
@@ -210,3 +212,119 @@ combine_pop <- function(pop_list) {
   return(new_pop)
   
 } # Close the function
+
+
+
+#' Make selections from a population
+#' 
+#' @param pop An object of class \code{pop}.
+#' @param intensity Either the prortion of individual in the population to select
+#' or the number of individuals in the population to select.
+#' @param type The type of selection to perform. If \code{"phenotypic"}, individuals
+#' in the population are selected based on phenotypic values, if \code{"genomic"}, 
+#' individuals in the population are selected based on predicted genotypic values,
+#' and if \code{"random"}, individuals in the population are selected randomly.
+#' @param tail The direction in which to select. If \code{"upper"}, the individuals
+#' with the highest values are selected, and if \code{"lower"}, the individuals with
+#' the lowest values are selected.
+#' 
+#' @details 
+#' If multiple traits are present, "trait1" is used for selection.
+#' 
+#' @return 
+#' An object of class \code{pop} that is a subset of the input \code{pop} for
+#' the selections.
+#' 
+#' @examples 
+#' 
+#' # Load some historic data
+#' data("s2_cap_genos")
+#' data("s2_snp_info")
+#' 
+#' # Create a genome with genetic architecture
+#' len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
+#' n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
+#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' 
+#' genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+#' 
+#' # Simulate a a trait with 15 QTL
+#' qtl.model <- matrix(nrow = 15, ncol = 4)
+#' 
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
+#' 
+#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
+#' pop <- sim_phenoval(pop, h2 = 0.5)
+#' 
+#' pop_selected <- selection(pop = pop, intensity = 50)
+#' 
+#' @import dplyr
+#' 
+#' @export 
+#' 
+selection <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "random"),
+                      tail = c("upper", "tail")) {
+  
+  # Error handling
+  # Make sure pop inherits the class "pop"
+  if (!inherits(pop, "pop"))
+    stop("The input 'pop' must be of class 'pop'.")
+  
+  # Match arguments
+  type <- match.arg(type)
+  tail <- match.arg(tail)
+  
+  # Number in the pheno.vec
+  n_ind <- nind(pop)
+  
+  # If the sel.intensity is between 0 and 1, find the total number to keep
+  if (intensity > 0 & intensity < 1) {
+    # Number to select
+    intensity_n <- round(nind(pop) * intensity)
+  } else {
+    intensity_n <- intensity
+  }
+  
+  # If direction is "worst", make intensity_n negative
+  intensity_n <- ifelse(tail == "low", intensity_n * -1, intensity_n)
+  
+  # If phenotypic selection
+  if (type == "phenotypic") {
+    
+    # Check for genotypic values
+    if (is.null(pop$pheno_val))
+      stop("Phenotypic selection cannot proceed within phenotypes in the population.")
+    
+    # Select on the means
+    selected <- pop$pheno_val$pheno_mean %>% 
+      top_n(n = intensity_n, wt = trait1)
+    
+  } else if (type == "genomic") {
+    
+    # Check for PGVs
+    if (is.null(pop$pred_val))
+      stop("Genomic selection cannot proceed within predicted genotypic values in the population.")
+  
+    # Check for predicted values
+    selected <- pop$pred_val %>% 
+      top_n(n = intensity_n, wt = trait1)
+    
+  } else if (type == "random") {
+    
+    # Random selections
+    selected <- pop$geno_val %>% 
+      sample_n(size = abs(intensity_n))
+    
+  }
+  
+  # Use the individuals in the selection to subset the population and return
+  subset_pop(pop = pop, individual = selected$ind)
+  
+} # Close the function
+    
+
+
+
+
+
+

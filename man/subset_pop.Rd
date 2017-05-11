@@ -40,4 +40,6 @@ pop <- create_pop(genome = genome, geno = s2_cap_genos)
 
 individual <- c("2ND27380", "06WA-406.6")
 
+pop_subset <- subset_pop(pop = pop, individual = individual)
+
 }
