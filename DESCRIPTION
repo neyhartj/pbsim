@@ -18,8 +18,11 @@ Imports: Rcpp,
     tidyr,
     stringr,
     qtl,
-    purrr
+    purrr,
+    abind,
+    rrBLUP
 Suggests: knitr,
     rmarkdown
-Remotes: github::kbroman/simcross
+Remotes: github::kbroman/simcross,
+    url::https://cran.r-project.org/src/contrib/Archive/hypred/hypred_0.5.tar.gz
 VignetteBuilder: knitr

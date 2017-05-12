@@ -9,8 +9,9 @@ split_geno(genome, geno)
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{geno}{Genotype data on a population to phenotype. Must be a matrix of dimensions
-\code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}.}
+\item{geno}{Genotype data on a population to phenotype. Must be a matrix of 
+dimensions \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, 
+or a list of such matrices.}
 }
 \value{
 A list of geno matrices, split by chromosome.

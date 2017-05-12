@@ -1,11 +1,14 @@
 #' Check a matrix of genotypes for completeness
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param geno Genotype data on a population to phenotype. Can be a matrix of dimensions
-#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-#' of such matrices.
+#' @param geno Genotype data on a population to phenotype. If the genome type is 
+#' \code{"pbsim"}, must be a matrix of dimensions \code{n.ind} x \code{n.loci}, 
+#' the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
+#' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
+#' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
 #' 
 #' @import dplyr
+#' @importFrom abind abind
 #' 
 #' @export
 #' 
@@ -15,15 +18,8 @@ check_geno <- function(genome, geno) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # If the geno input is a list, recombine
-  if (is.list(geno))
-    geno <- do.call("cbind", geno)
-  
-  # Make sure the genos are coded correctly
-  if (!all(geno %in% c(0, 1, 2))) {
-    warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
-    return(FALSE)
-  }
+  # Get the genome type
+  type <- attr(genome, "type")
   
   # Extract the number of markers
   n_marker <- nmar(genome)
@@ -31,25 +27,95 @@ check_geno <- function(genome, geno) {
   # The geno input may have n_marker + n_qtl - n_perf_mar columns
   tot_loci <- nloci(genome)
   
-  # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
-  if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
-    warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
-    return(FALSE)
-  }
-  
-  # Does the geno matrix have marker names
-  markers <- colnames(geno)
-  if (is.null(markers)) {
-    warning("No marker names in the geno input.") 
-    return(FALSE)
-  }
-  
-  # Are the marker names consistent with the genome?
-  if (!all(markernames(genome) %in% markers)) {
-    warning("The marker names in the genome are not consistent with those in the geno input.") 
-    return(FALSE)
-  }
+  if (type == "pbsim") {
+    
+    # If the geno input is a list, recombine
+    if (is.list(geno))
+      geno <- do.call("cbind", geno)
+    
+    # Make sure the genos are coded correctly
+    if (!all(geno %in% c(0, 1, 2))) {
+      warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
+      return(FALSE)
+    }
+    
+    # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
+    if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
+      warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
+      return(FALSE)
+    }
+    
+    # Does the geno matrix have marker names
+    markers <- colnames(geno)
+    if (is.null(markers)) {
+      warning("No marker names in the geno input.") 
+      return(FALSE)
+    }
+    
+    # Are the marker names consistent with the genome?
+    if (!all(markernames(genome) %in% markers)) {
+      warning("The marker names in the genome are not consistent with those in the geno input.") 
+      return(FALSE)
+    }
+    
+    
+    
+    
+    
+  } else if (type == "hypred") {
+    
+    # If the geno input is a list of arrays, recombine
+    if (is.list(geno) & length(dim(geno[[1]])) == 3) {
+      # Bind along columns
+      geno <- abind(geno, along = 2)
 
+    }
+    
+    # If the geno input is a list, recombine
+    if (is.list(geno))
+      geno <- do.call("cbind", geno)
+    
+    # Check the encoding based on array or list
+    if (length(dim(geno)) == 3) {
+      
+      if (!all(geno %in% c(0, 1))) {
+        warning("The input 'geno' must be encoded in z {0, 1}.") 
+        return(FALSE)
+      }
+      
+    } else if (length(dim(geno)) == 2) {
+      
+      # Make sure the genos are coded correctly
+      if (!all(geno %in% c(0, 1, 2))) {
+        warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
+        return(FALSE)
+      }
+      
+    }
+    
+    # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
+    if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
+      warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
+      return(FALSE)
+    }
+    
+    # Does the geno matrix have marker names
+    markers <- colnames(geno)
+    if (is.null(markers)) {
+      warning("No marker names in the geno input.") 
+      return(FALSE)
+    }
+    
+    # Are the marker names consistent with the genome?
+    if (!all(markernames(genome) %in% markers)) {
+      warning("The marker names in the genome are not consistent with those in the geno input.") 
+      return(FALSE)
+    }
+    
+    
+    
+  } # Close the if statement
+  
   # All clear
   return(TRUE)
   
@@ -60,8 +126,9 @@ check_geno <- function(genome, geno) {
 #' Split a genotype matrix into chromosomes
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param geno Genotype data on a population to phenotype. Must be a matrix of dimensions
-#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}.
+#' @param geno Genotype data on a population to phenotype. Must be a matrix of 
+#' dimensions \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, 
+#' or a list of such matrices.
 #' 
 #' @return 
 #' A list of geno matrices, split by chromosome.
@@ -109,13 +176,78 @@ split_geno <- function(genome, geno) {
          or the number of markers.")
   }
   
-  # Split
   geno_split <- lapply(X = split_vec, FUN = function(ind) geno[,ind])
   
   # Return
   return(geno_split)
   
 }
+
+
+
+#' Split a haploid array into chromosomes
+#' 
+#' @param genome An object of class \code{genome}.
+#' @param geno Array of haploid genotypes. Must be an array of dimensions \code{2} 
+#' x \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
+#' 
+#' @return 
+#' A list of haploid arrays, split by chromosome.
+#' 
+#' @export
+#' 
+split_haploid <- function(genome, geno) {
+  
+  # Check the genome and geno
+  if (!check_geno(genome = genome, geno = geno))
+    stop("The geno did not pass. See warning for reason.")
+  
+  # If the geno input is a list, recombine
+  if (is.list(geno))
+    geno <- do.call("cbind", geno)
+  
+  # Total number of loci
+  n_loci <- nloci(genome = genome, by.chr = TRUE)
+  # Total number of markers
+  n_marker <- nmar(genome = genome, by.chr = TRUE)
+  
+  # Create a splitting vector based on the number of columns in the geno
+  if (ncol(geno) == sum(n_loci)) {
+    
+    # Index of all loci
+    loci_ind <- seq(sum(n_loci))
+    # Split vector
+    chr_split <- mapply(seq(nchr(genome)), n_loci, FUN = rep)
+    
+    split_vec <- split(x = loci_ind, f = unlist(chr_split))
+    names(split_vec) <- chrnames(genome)
+    
+  } else if (ncol(geno) == sum(n_marker)) {
+    
+    # Index of all markers
+    loci_ind <- seq(sum(n_marker))
+    # Split vector
+    chr_split <- mapply(seq(nchr(genome)), n_marker, FUN = rep)
+    
+    split_vec <- split(x = loci_ind, f = unlist(chr_split))
+    names(split_vec) <- chrnames(genome)
+    
+  } else {
+    stop("The number of columns in the geno input is not equal to the number of total loci
+         or the number of markers.")
+  }
+  
+  geno_split <- lapply(X = split_vec, FUN = function(ind) geno[,ind,])
+    
+  
+  # Return
+  return(geno_split)
+  
+} # Close the function
+
+
+
+
 
 
 #' Pull the genotype data for a named locus

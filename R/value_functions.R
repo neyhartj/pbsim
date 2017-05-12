@@ -13,6 +13,8 @@
 #' A matrix of dimensions \code{n.ind} x \code{n.trait} with genotypic values
 #' of the individuals.
 #' 
+#' @import dplyr
+#' 
 #' @export 
 #' 
 calc_genoval <- function(genome, geno) {
@@ -47,7 +49,9 @@ calc_genoval <- function(genome, geno) {
   colnames(geno_val1) <- paste("trait", seq(ncol(geno_val1)), sep = "")
   
   # Convert the row.names to a column and return the data.frame
-  data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE)
+  data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE) %>%
+    # Sort on individual name
+    arrange(ind)
   
 } # Close the function
 
@@ -129,7 +133,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     stop("The 'pop' object must have the data.frame of genotypic values")
   
   # Number of traits
-  n_trait <- ncol(geno_val) - 1
+  n_trait <- sum(startsWith(x = names(geno_val), "trait"))
   
   # Capture the other arguments
   other.args <- list(...)
@@ -184,7 +188,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   var_comp <- list(V_G = V_G, V_E = V_E, V_R = V_R)
   
   # Generate environment effects
-  e <- lapply(V_E, sqrt) %>% 
+  t <- lapply(V_E, sqrt) %>% 
     lapply(rnorm, n = n.env, mean = 0) %>%
     lapply(matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = T)
   
@@ -196,10 +200,13 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   g <- subset(pop$geno_val, select = -ind, drop = FALSE)
   
   # Apply over all of the list
-  p <- mapply(g, e, epsilon, FUN = function(g1, e1, ep) {
+  p <- mapply(g, t, epsilon, FUN = function(g1, t1, ep) {
+    
+    # Reform the g1 matrix
+    g1 <- matrix(g1, nrow = n_ind, ncol = n.env * n.rep)
     
     # Sum
-    p <- structure(g1 + e1 + ep, dimnames = list(indnames(pop),
+    p <- structure(g1 + t1 + ep, dimnames = list(indnames(pop),
                                    paste( paste("env", seq(n.env), sep = ""), 
                                           rep(paste("rep", seq(n.rep), sep = ""), 
                                               each = n.env), sep = "_" )) )

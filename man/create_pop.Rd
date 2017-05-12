@@ -9,9 +9,11 @@ create_pop(genome, geno)
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{geno}{Genotype data on a population to phenotype. Can be a matrix of dimensions
-\code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-of such matrices.}
+\item{geno}{Genotype data on a population to phenotype. If the genome type is 
+\code{"pbsim"}, must be a matrix of dimensions \code{n.ind} x \code{n.loci}, 
+the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
+genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
+\code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.}
 }
 \value{
 An object of class \code{pop} with genotype information for the individuals in
@@ -33,16 +35,14 @@ a \code{cross} object.
 }
 \examples{
 
-# Load some historic data
+# Load historic data
 data("s2_cap_genos")
 data("s2_snp_info")
 
 # Create a genome with genetic architecture
-len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
-n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
 map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
 
-genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+genome <- sim_genome(map = map)
 
 # Simulate a a trait with 15 QTL
 qtl.model <- matrix(nrow = 15, ncol = 4)
@@ -50,5 +50,16 @@ qtl.model <- matrix(nrow = 15, ncol = 4)
 genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
 
 pop <- create_pop(genome = genome, geno = s2_cap_genos)
+
+
+## Use haploid data and a 'hypred' genome
+data("s2_cap_haploid")
+
+genome <- sim_genome(map = map, type = "hypred")
+
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
+
+pop <- create_pop(genome = genome, geno = s2_cap_haploid)
+
 
 }

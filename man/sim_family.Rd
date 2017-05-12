@@ -67,8 +67,24 @@ fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
 # generation.
 ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 
-fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop,
-                  dh = TRUE)
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
+                  
+## The above commands can be run using a hypred genome
+genome <- sim_genome(len, n.mar, type = "hypred")
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+
+# Simulate the founder genotypes
+founder_pop <- sim_founders(genome)
+
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+
+fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
 
  
 }

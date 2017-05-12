@@ -4,7 +4,7 @@
 #' Simulates the SNP genotype states for a set of founders. This is a simple wrapper of 
 #' \code{\link[qtl]{simFounderSnps}} that allows for bi-parental populations
 #' 
-#' @param map A \code{genome} or \code{map} object.
+#' @param genome An object of class \code{genome}.
 #' @param n.str The number of founders (either 2, 4, or 8)
 #' @param pat.freq A vector of length \code{n.str}/2 + 1. Frequency of SNP genotype 
 #' patterns in the founder, where the first vector element is the frequency of monoallelic
@@ -36,25 +36,34 @@
 #' # Simulate the founder genotypes
 #' founder_geno <- sim_founders(genome)
 #' 
+#' @import dplyr
 #' @importFrom qtl sim.cross
 #' @importFrom qtl pull.map
 #' 
 #' @export
 #' 
-sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
+sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
   
-  # Check classes
-  if (inherits(x = object, what = "genome")) {
-    map <- object$map
-    
-  } else if (inherits(x = object, what = "map")) {
-    map <- object
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Get the genome type
+  type <- attr(genome, "type")
+  
+  # Extract the map, depending on type
+  if (type == "pbsim") {
+    map <- genome$map
     
   } else {
-    stop("'object' must be of class 'genome' or 'map.'")
-    
-  }
+    map <- lapply(X = genome$hypredGenomes, FUN = slot, "pos.snp") %>% 
+      lapply(function(chr) chr * 100) %>% 
+      lapply(structure, class = "A") %>% 
+      structure(class = "map")
   
+  }
+    
+    
   ## Borrowed from simFounderSnps
   if (is.numeric(n.str)) 
     n.str <- as.character(n.str)
@@ -93,17 +102,16 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
   pat.freq <- pat.freq / sum(pat.freq)
   
   # Find the number of markers
-  n.mar <- sapply(map, length)
+  n.mar <- nloci(genome, by.chr = TRUE)
   # Get the names of markers
-  mar_names <- unlist(lapply(map, names))
+  mar_names <- markernames(genome, include.qtl = TRUE)
   # Create founder names
   founder_names <- paste("founder", seq(n.str), sep = "")
   
   
   # Empty vector
-  output <- vector("list", length(map))
-  names(output) <- names(map)
-  
+  output <- structure(vector("list", nchr(genome)), names = chrnames(genome))
+
   # Iterate over the map
   for (i in seq_along(map)) {
     
@@ -124,6 +132,25 @@ sim_founders <- function(object, n.str = c("2", "4", "8"), pat.freq) {
   
   # Add row and column names
   dimnames(geno) <- list(founder_names, mar_names)
+  
+  # If the genome is hypred, convert to haploids
+  if (type == "hypred") {
+    
+    # Split the genos by individual
+    geno_split <- split(geno, 1:nrow(geno), drop = FALSE) %>%
+      lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+    
+    # Empty array
+    haploid <- array(data = NA, dim = c(2, ncol(geno), length(geno_split)),
+                     dimnames = list(NULL, colnames(geno), row.names(geno)))
+    
+    for (k in seq_along(geno_split)) {
+      haploid[,,k] <- geno_split[[k]]
+    }
+    
+    geno <- haploid
+     
+  }
   
   # Create the pop object and return
   create_pop(genome = genome, geno = geno)

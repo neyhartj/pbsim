@@ -156,6 +156,13 @@ subset_pop <- function(pop, individual) {
     
   }
   
+  # Subset haploids, if present
+  if (!is.null(pop$haploids)) {
+    
+    new_pop$haploids <- lapply(pop$haploids, "[", ,,individual)
+    
+  }
+    
   # Return the population
   return(new_pop)
   
@@ -172,6 +179,7 @@ subset_pop <- function(pop, individual) {
 #' dropped.
 #' 
 #' @importFrom purrr pmap
+#' @importFrom abind abind
 #' 
 #' @export
 #' 
@@ -189,7 +197,7 @@ combine_pop <- function(pop_list) {
   # First extract the 'geno' element from each pop
   geno_list <- lapply(pop_list, "[[", "geno")
   # Combine
-  new_pop$geno <- purrr::pmap(geno_list, rbind)
+  new_pop$geno <- pmap(geno_list, rbind)
   
   # Combine genotypic values
   new_pop$geno_val <- do.call("rbind", lapply(pop_list, "[[", "geno_val"))
@@ -205,6 +213,17 @@ combine_pop <- function(pop_list) {
     # Combine
     new_pop$pheno_val$pheno_obs <- do.call("rbind", lapply(X = pheno_list, FUN = "[[", "pheno_obs"))
     new_pop$pheno_val$pheno_mean <- do.call("rbind", lapply(X = pheno_list, FUN = "[[", "pheno_mean"))
+    
+  }
+  
+  # Combine haploids if present
+  if (!is.null(pop_list[[1]]$haploids)) {
+    
+    # Subset the 'haplods' element
+    haploid_list <- lapply(X = pop_list, FUN = "[[", "haploids")
+    
+    # Empty array
+    new_pop$haploids <- pmap(haploid_list, abind)
     
   }
   

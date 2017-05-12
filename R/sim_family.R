@@ -55,11 +55,30 @@
 #' # generation.
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop,
-#'                   dh = TRUE)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
+#'                   
+#' ## The above commands can be run using a hypred genome
+#' genome <- sim_genome(len, n.mar, type = "hypred")
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#' 
+#' # Simulate the founder genotypes
+#' founder_pop <- sim_founders(genome)
+#' 
+#' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+#' 
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' 
+#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
 #' 
 #'  
 #' @import simcross
+#' @importFrom purrr by_row
+#' @importFrom purrr map
+#' @importFrom purrr pmap
 #' @importFrom stringr str_pad
 #' @importFrom stringr str_c
 #' @importFrom qtl sim.cross
@@ -84,97 +103,156 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
   if (!check_pedigree(pedigree, ignore_sex = TRUE))
     stop("The pedigree is not formatted correctly.")
   
+  # Get the genome type
+  type <- attr(genome, "type")
   
-  # Combine the founder geno input
-  founder_geno <- do.call("cbind", founder_pop$geno)
   
   # How many founders?
-  n_founders <- nrow(founder_geno)
+  n_founders <- nind(founder_pop)
   
   # Are the number of founders correct vis a vis the pedigree?
   if (n_founders != sum(pedigree$gen == 0))
     stop("The number of founders in the inpute 'fouders' is not equal to the
          number of founders in the 'pedigree.'")
   
-  # Are the number of markers in the founders correct?
-  if (ncol(founder_geno) != nloci(genome))
-    stop("The number of markers in 'founder_geno' is not equal to the number
-         of markers in the genome.")
+  # Parse other arguments
+  other.args <- list(...)
   
+  # For doubled-haploids
+  dh <- ifelse(is.null(other.args$dh), FALSE, other.args$dh)
   
   # Extract the individual ids of the finals
   final_id <- subset(pedigree, gen == max(gen))$id
   
-  # Extract the map
-  map <- genome$map
-  
-  # Parse other arguments
-  other.args <- list(...)
-  
-  # For xodata
-  m <- ifelse(is.null(other.args$m), 0, other.args$m)
-  p <- ifelse(is.null(other.args$p), 1, other.args$p)
+  # Generate new progeny names
+  n_ind <- length(final_id) # Number of individuals
+  # Find the maximum generation in the pedigree
+  max_gen <- max(pedigree$gen)
   
   # For naming
   family_num <- ifelse(is.null(other.args$family.num), 1, other.args$family.num)
   cycle_num <- ifelse(is.null(other.args$cycle.num), 1, other.args$cycle.num)
   
-  # For doubled-haploids
-  dh <- ifelse(is.null(other.args$dh), FALSE, other.args$dh)
+  # New names
+  new_names <- str_c("C", cycle_num, "_", max_gen, str_pad(family_num, width = 3, pad = 0), 
+                     "-", str_pad(seq_len(n_ind), width = 3, pad = 0)) 
   
-  # If selfing is partial, using simcross
+  
+  # Determine the selfing level
   selfing <- attr(pedigree, "selfing")
   
-  if (selfing == "partial") {
   
-    # Generate cross-over data
-    xo_data <- sim_from_pedigree_allchr(pedigree = pedigree, map = map, m = m, p = p)
+  # Split the stream by genome type
+  if (type == "pbsim") {
     
-    # Simulate DH if called for
-    if (dh) {
-      xo_data <- induce_dh(xodat = xo_data, pedigree = pedigree)
+    # Extract the map
+    map <- genome$map
+    
+    # For xodata
+    m <- ifelse(is.null(other.args$m), 0, other.args$m)
+    p <- ifelse(is.null(other.args$p), 1, other.args$p)
+    
+    if (selfing == "partial") {
+    
+      # Generate cross-over data
+      xo_data <- sim_from_pedigree_allchr(pedigree = pedigree, map = map, m = m, p = p)
+      
+      # Simulate DH if called for
+      if (dh) {
+        xo_data <- induce_dh(xodat = xo_data, pedigree = pedigree)
+      }
+      
+      # Simulate genotypic data
+      prog_genos <- convert2geno_allchr(xodat = xo_data, map = map, id = final_id)
+      
+    } else {
+      
+      # Otherwise use sim.cross
+      cross_sim <- qtl::sim.cross(map = genome$map, n.ind = length(final_id), type = "riself", 
+                                  m = m, p = p)
+      
+      # Extract progeny genos
+      prog_genos <- lapply(X = cross_sim$geno, FUN = function(geno_chr) 
+        ifelse(geno_chr$data == 1, 1, ifelse(geno_chr$data == 2, 3, NA)) )
+      
+      # Bind
+      prog_genos <- do.call("cbind", prog_genos)
+      
+      # Add row.names
+      row.names(prog_genos) <- final_id
+      
     }
     
-    # Simulate genotypic data
-    prog_genos <- convert2geno_allchr(xodat = xo_data, map = map, id = final_id)
+    # Extract founder genotypes
+    founder_geno <- do.call("cbind", founder_pop$geno)
     
-  } else {
+    # Create a matrix with the founder1, het, and founder2 genotypes
+    founder_multipoint <- rbind(founder_geno[1,], colMeans(founder_geno), founder_geno[2,])
     
-    # Otherwise use sim.cross
-    cross_sim <- qtl::sim.cross(map = genome$map, n.ind = length(final_id), type = "riself", 
-                                m = m, p = p)
+    # Convert the progeny genotypes to the parental states
+    prog_geno <- t(apply(X = prog_genos, MARGIN = 1, FUN = function(prog) {
+      founder_multipoint[cbind(prog, seq(nrow(founder_multipoint)))] }))
     
-    # Extract progeny genos
-    prog_genos <- lapply(X = cross_sim$geno, FUN = function(geno_chr) 
-      ifelse(geno_chr$data == 1, 1, ifelse(geno_chr$data == 2, 3, NA)) )
+    dimnames(prog_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
     
-    # Bind
-    prog_genos <- do.call("cbind", prog_genos)
+  } else if (type == "hypred") {
     
-    # Add row.names
-    row.names(prog_genos) <- final_id
+    # If selfing is complete, error out
+    if (selfing == "complete")
+      stop("Complete selfing is not supported in 'hypred'")
+      
+    # Extract the haploids as generation 0
+    gen0 <- founder_pop$haploids
+    
+    # Iterate from generation 0 to max_gen
+    for (g in seq(0, max_gen)) {
+      
+      if (g == 0) {
+        
+        pedigree_append <- by_row(subset(pedigree, gen == g), function(ped)
+          map(gen0, function(chr_array) chr_array[,,ped$id]), .to = "hap")
+        
+      } else {
+        
+        pedigree_append <- by_row(subset(pedigree, gen == g), function(ped) {
+          
+          # Gamete1
+          mom_id <- match(ped$mom, pedigree_append$id)
+          gamete1 <- recombine_hypred(genome = genome, haploids = pedigree_append$hap[[mom_id]])
+          
+          # Gamete2
+          dad_id <- match(ped$dad, pedigree_append$id)
+          gamete2 <- recombine_hypred(genome = genome, haploids = pedigree_append$hap[[dad_id]])
+          
+          # Combine and return
+          pmap(list(gamete1, gamete2), rbind) }, .to = "hap")
+        
+      }}
+
+    # If doubled haploids should be induced, sample one haploid from each
+    # chromosome from each individual and double it
+    if (dh) {
+      resample_haps <- map(pedigree_append$hap, function(ind)
+        map(ind, function(chr) chr[rep(sample(c(1,2), 1), 2),] ))
+      
+    } else {
+      resample_haps <- pedigree_append$hap
+      
+    }
+    
+    
+    # Convert to list of haploids per chromosome
+    haploids <- pmap(resample_haps, list) %>%
+      map(simplify2array)
+    
+    # Add new line names
+    prog_geno <- map(haploids, function(chr_haps) 
+      structure(chr_haps, dimnames = list(NULL, colnames(chr_haps), new_names)) )
     
   }
-  
-  # Create a matrix with the founder1, het, and founder2 genotypes
-  founder_multipoint <- rbind(founder_geno[1,], colMeans(founder_geno), founder_geno[2,])
-  
-  # Convert the progeny genotypes to the parental states
-  prog_genos_recode <- t(apply(X = prog_genos, MARGIN = 1, FUN = function(prog) {
-    founder_multipoint[cbind(prog, seq(nrow(founder_multipoint)))] }))
-
-  # Generate new progeny names
-  n_ind <- sum(pedigree[,5] == max(pedigree[,5])) # Number of individuals
-  gen <- max(pedigree[,5]) # Generation number
-  
-  # New names
-  new_names <- str_c("C", cycle_num, "_", gen, str_pad(family_num, width = 3, pad = 0), 
-                     "-", str_pad(seq_len(n_ind), width = 3, pad = 0))
-  
-  dimnames(prog_genos_recode) <- list(new_names, markernames(genome, include.qtl = TRUE))
-  
+    
   # Create the pop
-  create_pop(genome = genome, geno = prog_genos_recode)
+  create_pop(genome = genome, geno = prog_geno)
   
 } # Close the function
 

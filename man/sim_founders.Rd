@@ -4,9 +4,11 @@
 \alias{sim_founders}
 \title{Simulate founders}
 \usage{
-sim_founders(object, n.str = c("2", "4", "8"), pat.freq)
+sim_founders(genome, n.str = c("2", "4", "8"), pat.freq)
 }
 \arguments{
+\item{genome}{An object of class \code{genome}.}
+
 \item{n.str}{The number of founders (either 2, 4, or 8)}
 
 \item{pat.freq}{A vector of length \code{n.str}/2 + 1. Frequency of SNP genotype 
@@ -16,8 +18,6 @@ In the case of 4 or 8 founders, the second element is the frequency of SNPs uniq
 and the third element is the frequency of SNPs in 2 founders. In the case of 8 founders,
 the fourth element is the frequency of SNPs in 3 out of 8 founders, and the fifth element
 is the frequency of SNPs in 4 out of 8 founders.}
-
-\item{map}{A \code{genome} or \code{map} object.}
 }
 \value{
 See \code{\link[qtl]{simFounderSnps}}. A \code{list} of the same length as \code{map},

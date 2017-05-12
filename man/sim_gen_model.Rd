@@ -4,7 +4,7 @@
 \alias{sim_gen_model}
 \title{Define the genetic model of one or more traits}
 \usage{
-sim_gen_model(genome, qtl.model, de.novo = FALSE, ...)
+sim_gen_model(genome, qtl.model, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -19,11 +19,6 @@ architecture of multiple traits is desired, a list of length \code{n_trait}
 of \code{qtl.model} matrices can be provided. See \emph{Details} for more 
 information.}
 
-\item{de.novo}{\code{Logical} indicating whether QTL should be generated in 
-addition to SNP markers in the \code{genome}. If \code{FALSE}, SNPs in the
-genome are designated as QTL and the argument \code{max.qtl} must also be passed
-(see \emph{Details}).}
-
 \item{...}{Other arguments. See \emph{Details} for more information.}
 }
 \value{
@@ -33,10 +28,7 @@ A \code{genome} object with added information for the gentic model.
 Defines the genetic architecture of a trait.
 }
 \details{
-QTL can be simulated in two ways, defined by the \code{de.novo} argument. The
-first, in the case that \code{de.novo = TRUE}, QTL are simulated separately
-from existing markers. The second, in the case that \code{de.novo = FALSE}, 
-QTL are simulated by sampling existing markers, which become "hidden."
+QTL are simulated by sampling or specifying existing markers, which become "hidden."
 
 The \code{qtl.model} matrix specifies the information for this assignment. The 
 first column in this matrix is the chromosome number. The second column is 
@@ -68,7 +60,7 @@ Other arguments include:
   QTL can be simulated by providing a 0 in the first column, and no genetic 
   linkage is simulated if 50 is in the first column.}
   \item{\code{max.qtl}}{The maximum number of QTL in the simulation experiment. Must
-  be passed if \code{de.novo = FALSE}. If a trait is controlled by \emph{L} QTL
+  be passed if the QTL are randomly sampled. If a trait is controlled by \emph{L} QTL
   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
   This is useful if you want to simulate variable genetic architecture, but keep
   the number of SNP markers constant.}
@@ -100,12 +92,11 @@ qtl.model <- cbind(chromosome, pos, a, d)
 
 genome <- sim_gen_model(genome, qtl.model)
 
-## Generate new QTL positions
 # Randomly generate 15 QTL with additive allelic effects following a
 # genometric series
 qtl.model <- matrix(nrow = 15, ncol = 4)
 
-genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", de.novo = TRUE)
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
 
 # Randomly generate 15 QTL for each of two traits. 50\% of the QTL are pleiotropic
 na_mat <- matrix(nrow = 15, ncol = 4)
@@ -114,12 +105,9 @@ qtl.model <- list(na_mat, na_mat)
 add.dist <- "geometric"
 prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
 
-genome <- sim_gen_model(genome, qtl.model, de.novo = TRUE, add.dist = add.dist, 
-                        prob.corr = prob.corr)
+genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
 
-## Generate QTL by sampling markers already present
 # In this experiment, the maximum number of QTL for any trait is 20.
-genome <- sim_gen_model(genome, qtl.model, de.novo = FALSE, add.dist = add.dist, 
-                        prob.corr = prob.corr, max.qtl = 20)
+genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, max.qtl = 20)
  
 }

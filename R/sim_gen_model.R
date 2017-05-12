@@ -13,17 +13,10 @@
 #' architecture of multiple traits is desired, a list of length \code{n_trait}
 #' of \code{qtl.model} matrices can be provided. See \emph{Details} for more 
 #' information.
-#' @param de.novo \code{Logical} indicating whether QTL should be generated in 
-#' addition to SNP markers in the \code{genome}. If \code{FALSE}, SNPs in the
-#' genome are designated as QTL and the argument \code{max.qtl} must also be passed
-#' (see \emph{Details}).
 #' @param ... Other arguments. See \emph{Details} for more information.
 #' 
 #' @details
-#' QTL can be simulated in two ways, defined by the \code{de.novo} argument. The
-#' first, in the case that \code{de.novo = TRUE}, QTL are simulated separately
-#' from existing markers. The second, in the case that \code{de.novo = FALSE}, 
-#' QTL are simulated by sampling existing markers, which become "hidden."
+#' QTL are simulated by sampling or specifying existing markers, which become "hidden."
 #' 
 #' The \code{qtl.model} matrix specifies the information for this assignment. The 
 #' first column in this matrix is the chromosome number. The second column is 
@@ -55,7 +48,7 @@
 #'   QTL can be simulated by providing a 0 in the first column, and no genetic 
 #'   linkage is simulated if 50 is in the first column.}
 #'   \item{\code{max.qtl}}{The maximum number of QTL in the simulation experiment. Must
-#'   be passed if \code{de.novo = FALSE}. If a trait is controlled by \emph{L} QTL
+#'   be passed if the QTL are randomly sampled. If a trait is controlled by \emph{L} QTL
 #'   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
 #'   This is useful if you want to simulate variable genetic architecture, but keep
 #'   the number of SNP markers constant.}
@@ -90,12 +83,11 @@
 #' 
 #' genome <- sim_gen_model(genome, qtl.model)
 #' 
-#' ## Generate new QTL positions
 #' # Randomly generate 15 QTL with additive allelic effects following a
 #' # genometric series
 #' qtl.model <- matrix(nrow = 15, ncol = 4)
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", de.novo = TRUE)
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
 #' 
 #' # Randomly generate 15 QTL for each of two traits. 50% of the QTL are pleiotropic
 #' na_mat <- matrix(nrow = 15, ncol = 4)
@@ -104,19 +96,16 @@
 #' add.dist <- "geometric"
 #' prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, de.novo = TRUE, add.dist = add.dist, 
-#'                         prob.corr = prob.corr)
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
 #' 
-#' ## Generate QTL by sampling markers already present
 #' # In this experiment, the maximum number of QTL for any trait is 20.
-#' genome <- sim_gen_model(genome, qtl.model, de.novo = FALSE, add.dist = add.dist, 
-#'                         prob.corr = prob.corr, max.qtl = 20)
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, max.qtl = 20)
 #'  
 #' @import dplyr
 #' 
 #' @export
 #' 
-sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
+sim_gen_model <- function(genome, qtl.model, ...) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -245,60 +234,42 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
       dom.eff <- rnorm(n_qtl)
     }
     
-    ## Should positions be drawn randomly, or from current markers?
-    if (de.novo) {
     
-      # Randomly draw chromosomes
-      chr <- sort(sample(chrnames(genome), n_qtl, replace = TRUE))
-      
-      # Pipe by genome type
-      if (type == "pbsim") {
-      
-        # Randomly designate genetic positions for QTL
-        qtl.pos <- lapply(X = genome$len[chr], runif, n = 1, min = 0)
-        pos <- unlist(qtl.pos)
-        
-        # If de.novo, the QTL names are generated
-        qtl_marker_name <- paste("QTL", seq_along(chr), sep = "")
-        
-      } else if (type == "hypred")
-        stop("'de.novo' cannot be TRUE with a genome of type 'hypred'.")
-      
-    } else {
-      
-      # Make sure the max.qtl argument was provided
-      max.qtl <- other.args$max.qtl
-      
-      if (is.null(max.qtl))
-        stop("The argument 'de.novo' is FALSE, but the max.qtl argument was not provided.")
-      
-      # Sample marker names to become QTL
-      marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = max.qtl)
-      
-      # Get the positions of those markers
-      marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-        mutate(marker = row.names(.))
-      
-      # Set the new length of add.eff and dom.eff
-      length(add.eff) <- max.qtl
-      length(dom.eff) <- max.qtl
-      
-      # Pad with 0, not NA, and add to the df
-      marker_sample_pos1 <- marker_sample_pos %>%
-        mutate(add.eff = ifelse(is.na(add.eff), 0, add.eff),
-               dom.eff = ifelse(is.na(dom.eff), 0, dom.eff)) %>%
-        arrange(chr, pos)
-      
-      # Extract the chr and pos
-      chr <- marker_sample_pos1$chr
-      pos <- marker_sample_pos1$pos
-      add.eff <- marker_sample_pos1$add.eff
-      dom.eff <- marker_sample_pos1$dom.eff
-      
-      # Assign marker name for these QTL
-      qtl_marker_name <- marker_sample_pos1$marker
-      
-    }
+
+    # If the max.qtl argument is FALSE, set it to the maximum number of QTL
+    # for any trait
+    max.qtl <- other.args$max.qtl
+    
+    if (is.null(max.qtl))
+      max.qtl <- max(sapply(X = qtl.model, nrow))
+    
+
+    
+    # Sample marker names to become QTL
+    marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = max.qtl)
+    
+    # Get the positions of those markers
+    marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
+      mutate(marker = row.names(.))
+    
+    # Set the new length of add.eff and dom.eff
+    length(add.eff) <- max.qtl
+    length(dom.eff) <- max.qtl
+    
+    # Pad with 0, not NA, and add to the df
+    marker_sample_pos1 <- marker_sample_pos %>%
+      mutate(add.eff = ifelse(is.na(add.eff), 0, add.eff),
+             dom.eff = ifelse(is.na(dom.eff), 0, dom.eff)) %>%
+      arrange(chr, pos)
+    
+    # Extract the chr and pos
+    chr <- marker_sample_pos1$chr
+    pos <- marker_sample_pos1$pos
+    add.eff <- marker_sample_pos1$add.eff
+    dom.eff <- marker_sample_pos1$dom.eff
+    
+    # Assign marker name for these QTL
+    qtl_marker_name <- marker_sample_pos1$marker
       
     # Assemble the matrix
     qtl_specs[[1]] <- data.frame(chr = chr, pos = pos, add_eff = add.eff, dom_eff = dom.eff,
@@ -333,18 +304,10 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
           dom.eff <- rnorm(n_qtl)
         }
         
-        # If de.novo, set max.qtl to the number of qtl
-        if (de.novo) {
-          max.qtl <- n_qtl
+        # Set the new length of add.eff and dom.eff
+        length(add.eff) <- max.qtl
+        length(dom.eff) <- max.qtl
           
-        } else {
-          # Set the new length of add.eff and dom.eff
-          length(add.eff) <- max.qtl
-          length(dom.eff) <- max.qtl
-          
-        } 
-          
-        
         # If the length of prob.corr is 1, output a vector of that prob.corr
         if (nrow(prob.corr) == 1) {
           qtl_designator <- rep(x = prob.corr[,1], times = n_qtl)
@@ -404,55 +367,25 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
             # Max dist is equal to p
             max_dist <- p
             
-            # If de.novo, generate new QTL
-            if (de.novo) {
-              
-              # Sample a deviation based on p and then sample whether it is positive or negative
-              sample_deviation <- runif(n = length(qtl_one_sample), min = min_dist, max = max_dist) %>%
-              {. * sample(c(-1, 1), size = length(.), replace = TRUE)}
-              
-              # Designate the new position of this QTL
-              new_pos <- qtl_one_pos[,2] + sample_deviation
-              
-              qtl_two_pos <- cbind(qtl_one_pos[,1, drop = FALSE], new_pos)
-              
-              # Reject if the new position is less than 0 or more than the chromosome length
-              while (any(qtl_two_pos$new_pos < 0 | qtl_two_pos$new_pos > chr_len[qtl_two_pos$chr])) {
-                
-                # Sample a deviation based on p and then sample whether it is positive or negative
-                sample_deviation <- runif(n = length(qtl_one_sample), min = min_dist, max = max_dist) %>%
-                {. * sample(c(-1, 1), size = length(.), replace = TRUE)}
-                
-                # Designate the new position of this QTL
-                new_pos <- qtl_one_pos[,2] + sample_deviation
-                
-                qtl_two_pos <- cbind(qtl_one_pos[,1, drop = FALSE], new_pos)
-                
-              }
-              
-              # Add blank QTL names
-              marker_sample_pos <- data.frame(qtl_two_pos, marker = NA)
-              
-            } else {
-              # Else sample from markers in the range
-              prox_mar <- find_proxmarkers(genome = genome, marker = qtl_one_pos$qtl_name,
-                                           min.dist = min_dist, max.dist = max_dist)
-              
-              # For each of those markers, sample the proximal markers
-              prox_mar_sample <- sapply(X = prox_mar, FUN = function(px)
-                ifelse(length(px) == 0, NA, sample(px, 1)))
-              
-              # Create an empty data.frame
-              marker_sample_pos <- as.data.frame(
-                matrix(data = NA, nrow = length(prox_mar_sample), ncol = 3, 
-                       dimnames = list(NULL, c("chr", "pos", "marker"))))
-              
-              # Get the positions of those markers
-              marker_sample_pos[!is.na(prox_mar_sample),] <- 
-                find_markerpos(genome = genome, marker = na.omit(prox_mar_sample)) %>%
-                mutate(marker = row.names(.))
-              
-            }
+
+            # Sample from markers in the range
+            prox_mar <- find_proxmarkers(genome = genome, marker = qtl_one_pos$qtl_name,
+                                         min.dist = min_dist, max.dist = max_dist)
+            
+            # For each of those markers, sample the proximal markers
+            prox_mar_sample <- sapply(X = prox_mar, FUN = function(px)
+              ifelse(length(px) == 0, NA, sample(px, 1)))
+            
+            # Create an empty data.frame
+            marker_sample_pos <- as.data.frame(
+              matrix(data = NA, nrow = length(prox_mar_sample), ncol = 3, 
+                     dimnames = list(NULL, c("chr", "pos", "marker"))))
+            
+            # Get the positions of those markers
+            marker_sample_pos[!is.na(prox_mar_sample),] <- 
+              find_markerpos(genome = genome, marker = na.omit(prox_mar_sample)) %>%
+              mutate(marker = row.names(.))
+
             
             # Assign this info to the qtl_specs df for trait t
             qtl_specs[[t]][which(qtl_designator == p), c("chr", "pos", "qtl_name")] <- 
@@ -466,34 +399,20 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
             # If p is 50, randomly draw positions and chromosomes, regardless of the first trait
           } else if (p == 50) {
             
-            # If de.novo, randomly generate new QTL positions
-            if (de.novo) {
-            
-              # Randomly draw chromosomes
-              chr <- sort(sample(chrnames(genome), n_qtl, replace = TRUE))
-              
-              # Randomly designate genetic positions for QTL
-              qtl.pos <- lapply(X = genome$len[chr], runif, n = 1, min = 0)
-              pos <- unlist(qtl.pos)
-              
-              qtl_specs[[t]][qtl_designator == p, c("chr", "pos")] <- c(chr, pos)
-              
-            } else {
-              # Else if de.novo is FALSE
-              # Randomly draw markers to be QTL, excluding those already designated as QTL
-              avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
-                                       unlist(lapply(qtl_specs, "[[", "marker_name")))
-              
-              marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
 
-              # Get the positions of those markers
-              marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-                mutate(marker = row.names(.))
-              
-              # Assign this info to the qtl_specs df for trait t
-              qtl_specs[[t]][which(qtl_designator == p), c("chr", "pos", "qtl_name")] <- marker_sample_pos
-              
-            }
+            # Randomly draw markers to be QTL, excluding those already designated as QTL
+            avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
+                                     unlist(lapply(qtl_specs, "[[", "marker_name")))
+            
+            marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
+
+            # Get the positions of those markers
+            marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
+              mutate(marker = row.names(.))
+            
+            # Assign this info to the qtl_specs df for trait t
+            qtl_specs[[t]][which(qtl_designator == p), c("chr", "pos", "qtl_name")] <- marker_sample_pos
+            
             
           } # Close the p object if statements
           
@@ -504,40 +423,20 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
         qtl_specs[[t]]$dom_eff <- ifelse(is.na(dom.eff), 0, dom.eff)
         
         ## Fill in markers that are NA
+        # Randomly draw markers to be QTL, excluding those already designated as QTL
+        avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
+                                 unlist(lapply(qtl_specs, "[[", "qtl_name")))
         
-        # If de.novo, add names progressively
-        if (de.novo) {
+        marker_sample <- sample(x = avail_markers, size = sum(is.na(qtl_specs[[t]]$qtl_name)))
+        
+        # Get the positions of those markers
+        marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
+          mutate(marker = row.names(.))
+        
+        # Assign this info to the qtl_specs df for trait t
+        qtl_specs[[t]][which(is.na(qtl_specs[[t]]$qtl_name)), c("chr", "pos", "qtl_name")] <- 
+          marker_sample_pos
 
-          ## Any qtl_names that are NA get the next highest QTL name
-          # number of QTL from the previous trait
-          start_name <- nrow(qtl_specs[[t - 1]]) + 1
-          
-          # Number of QTL missing names
-          qtl_missing <- sum(is.na(qtl_specs[[t]]$qtl_name))
-          
-          qtl_specs[[t]]$qtl_name[is.na(qtl_specs[[t]]$qtl_name)] <- 
-            paste("QTL", seq(start_name, start_name + (qtl_missing - 1)), sep = "")
-          
-        } else {
-          # Else sample remaining markers
-          
-          # Else if de.novo is FALSE
-          # Randomly draw markers to be QTL, excluding those already designated as QTL
-          avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
-                                   unlist(lapply(qtl_specs, "[[", "qtl_name")))
-          
-          marker_sample <- sample(x = avail_markers, size = sum(is.na(qtl_specs[[t]]$qtl_name)))
-          
-          # Get the positions of those markers
-          marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-            mutate(marker = row.names(.))
-          
-          # Assign this info to the qtl_specs df for trait t
-          qtl_specs[[t]][which(is.na(qtl_specs[[t]]$qtl_name)), c("chr", "pos", "qtl_name")] <- 
-            marker_sample_pos
-          
-        }
-          
       } # Close the loop
     
   } else {
@@ -599,19 +498,6 @@ sim_gen_model <- function(genome, qtl.model, de.novo = FALSE,  ...) {
   # Get unique QTL
   unique_qtl <- pull_qtl(genome = genome, unique = TRUE)
   
-  # Add QTL to the map, if de.novo
-  if (de.novo) {
-    qtl_pos <- split(x = structure(unique_qtl$pos, names = unique_qtl$qtl_name), f = unique_qtl$chr)
-    new_map <- mapply(genome$map, qtl_pos, FUN = c, SIMPLIFY = FALSE) %>%
-      # Run unique to remove QTL that are markers
-      lapply(sort) %>%
-      lapply(structure, class = "A")
-    
-    class(new_map) <- "map"
-  
-    genome$map <- new_map
-    
-  }
   
   return(genome)
     

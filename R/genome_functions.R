@@ -161,7 +161,7 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
   }
   
   # Get the QTL names if present
-  if (!is.null(genome$gen_model)) {
+  if (!include.qtl) {
     # Get QTL names
     qtl_names <- qtlnames(genome)
     # Find the loci that are not QTL
@@ -516,7 +516,7 @@ nloci <- function(genome, by.chr = FALSE) {
   if (type == "pbsim") {
   
     # Use the map to determine the number of loci
-    n_loci <- sapply(map, length)
+    n_loci <- sapply(genome$map, length)
     
   } else if (type == "hypred") {
     
