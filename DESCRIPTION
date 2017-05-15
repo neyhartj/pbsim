@@ -23,6 +23,5 @@ Imports: Rcpp,
     rrBLUP
 Suggests: knitr,
     rmarkdown
-Remotes: github::kbroman/simcross,
-    url::https://cran.r-project.org/src/contrib/Archive/hypred/hypred_0.5.tar.gz
+Remotes: github::kbroman/simcross
 VignetteBuilder: knitr

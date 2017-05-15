@@ -42,18 +42,37 @@ qtl.model <- matrix(NA, 50, 4)
 genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
                         add.dist = "geometric", max.qtl = 50)
 
-# Simulate the genotypes of eight founders
-founder_pop <- sim_founders(genome, n.str = 8)
-
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
-
-# Extract the founder names
-parents <- indnames(founder_pop)
+# Simulate the genotypes for 8 founders
+founder_pop <- sim_founders(genome = genome, n.str = 8)
 
 # Generate a crossing block with 5 crosses
-cb <- sim_crossing_block(parents = parents, n.crosses = 5)
+cb <- sim_crossing_block(parents = indnames(founder_pop), n.crosses = 5)
 
-# Simulate the populations according to the crossing block
-pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
+# Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+# Simulate a group of families from the crossing block
+fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
+
+
+## The above commands can be run using a hypred genome
+genome <- sim_genome(len, n.mar, type = "hypred")
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+
+# Simulate the genotypes for 8 founders
+founder_pop <- sim_founders(genome = genome, n.str = 8)
+
+# Generate a crossing block with 5 crosses
+cb <- sim_crossing_block(parents = indnames(founder_pop), n.crosses = 5)
+
+# Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+# Simulate a group of families from the crossing block
+fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
 
 }

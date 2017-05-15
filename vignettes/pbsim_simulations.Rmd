@@ -2,7 +2,9 @@
 title: "Simulating Plant Breeding Populations With `pbsim`"
 author: "Jeff Neyhart"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+output: 
+  rmarkdown::html_vignette:
+    toc: true
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
@@ -46,6 +48,10 @@ The output is a `genome` object. A generic `summary` function can be used to sum
 summary(genome)
 
 ```
+
+Genomes can also be simulated to 
+
+
 
 ### Define the Genetic Model
 
