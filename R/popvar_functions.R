@@ -56,21 +56,11 @@ map_to_popvar <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Get the map by first calling a blank_cross
-  blank_cross <- sim.cross(map = genome$map, n.ind = 1)
-  map <- pull.map(cross = blank_cross)
+  # Convert the map to a table
+  map_table <- map_to_table(genome)
   
-  # Convert and export
-  map_recode <- lapply(X = map, FUN = function(chr)
-    data.frame(marker = names(chr), 
-               pos = as.numeric(chr)) )
-  
-  # Add chromosome names
-  map_recode1 <- mapply(names(map_recode), map_recode, FUN = function(chr_name, chr_map)
-    data.frame(chr_map, chr = chr_name), SIMPLIFY = FALSE) %>%
-    do.call("rbind", .)
-  
-  # Rearrange and return
-  select(map_recode1, marker, chr, pos)
+  map_table %>% 
+    mutate(marker = row.names(.)) %>% 
+    select(marker, chr, pos)
   
 }

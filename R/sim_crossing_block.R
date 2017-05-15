@@ -8,12 +8,10 @@
 #' \code{second.parents} is not provided, crosses are assigned from randomly sampling
 #' the entries in \code{parents}.
 #' @param second.parents A \code{character} of line names to use as parents. If
-#' not \code{NULL}, must be the same length as \code{parents}. Crosses are formed
-#' by randomly pairing the entries in \code{parents} with those in 
-#' \code{second.parents}, unless \code{scheme = "pass"} is specified.
+#' passed, must be the same length as \code{parents}.
 #' @param n.crosses The number of crosses to generate. Cannot be more than the
 #' possible number of crosses.
-#' @param scheme The mating scheme. Can be one of \code{"random"} or \code{chain}.
+#' @param scheme The mating scheme. Can be one of \code{"random"} or \code{"chain"}.
 #' See \emph{Details} for more information.
 #' @param use.parents.once \code{Logical} - should parents be used only once?
 #' 
@@ -98,13 +96,11 @@ sim_crossing_block <- function(parents, second.parents, n.crosses, scheme = c("r
       select(parent1, parent2) %>%
       filter(parent1 != parent2)
     
-    # Find reciprocals
-    reciprocals <- apply(X = sample_crosses, MARGIN = 1, FUN = sort) %>% 
-      t() %>% 
-      duplicated()
-    
+    # Find reciprocals and remove
     sample_crosses1 <- sample_crosses %>% 
-      filter(!reciprocals)
+      mutate(key = paste(pmin(parent1, parent2), pmax(parent1, parent2), sep = "")) %>% 
+      distinct(key, .keep_all = TRUE) %>%
+      select(-key)
     
     # Sample n.crosses from the sample crosses
     chosen_crosses <- sample_crosses1 %>%

@@ -36,17 +36,21 @@ summary.genome <- function(x) {
     # Iterate over traits
     for (t in seq(n_trait)) {
       
-      cat("\nSummary for trait: ", t, "\n")
+      cat("\n\nSummary for trait ", t, ":\n")
       
       n_qtl <- nrow(gen_model[[t]])
-      qtl_chr <- table(gen_model[[t]][,1])
+      eff_qtl <- subset(gen_model[[t]], add_eff != 0 | dom_eff != 0)
+      n_eff_qtl <- nrow(eff_qtl)
+      qtl_chr <- table(eff_qtl$chr)
       
-      cat("Number of QTL: ", n_qtl, "\n")
-      cat("QTL per chromosome: ", qtl_chr, "\n") 
-      cat("Distribution of additive effects:\n")
-      print(summary(gen_model[[t]][,3]))
-      cat("Distribution of dominance effects: \n")
-      print(summary(gen_model[[t]][,4]))
+      
+      cat("Total QTL: ", n_qtl, "\n")
+      cat("Number of effective QTL: ", n_eff_qtl, "\n")
+      cat("Effective QTL per chromosome: ", qtl_chr, "\n\n") 
+      cat("Distribution of additive effects of effective QTL:\n")
+      print(summary(eff_qtl$add_eff))
+      cat("Distribution of dominance effects of effective QTL: \n")
+      print(summary(eff_qtl$dom_eff))
       
     }
     

@@ -138,6 +138,9 @@ subset_pop <- function(pop, individual) {
   # Make sure the individuals specified are in the the pop
   if (!all(individual %in% indnames(pop)))
     stop("Not all of the individuals in 'individual' are in the 'pop' object.")
+  
+  # Find the element names
+  element_names <- names(pop)
 
   
   # Empty pop object
@@ -147,7 +150,8 @@ subset_pop <- function(pop, individual) {
   new_pop$geno <- lapply(X = pop$geno, FUN = "[", individual, , drop = FALSE)
   new_pop$geno_val <- filter(pop$geno_val, ind %in% individual)
 
-  if (!is.null(pop$pheno_val)) {
+  # Subset phenotypic values, if present
+  if ("pheno_val" %in% element_names) {
     # Get rid of the variance component estimate
     new_pop$pheno_val <- pop$pheno_val[-1]
     
@@ -157,9 +161,16 @@ subset_pop <- function(pop, individual) {
   }
   
   # Subset haploids, if present
-  if (!is.null(pop$haploids)) {
+  if ("haploids" %in% element_names) {
     
     new_pop$haploids <- lapply(pop$haploids, "[", ,,individual)
+    
+  }
+  
+  # Subset predicted genotypic values, if present
+  if ("pred_val" %in% element_names) {
+    
+    new_pop$pred_val <- filter(pop$pred_val, ind %in% individual)
     
   }
     
@@ -178,6 +189,7 @@ subset_pop <- function(pop, individual) {
 #' If \code{pheno_val} is present in the \code{pop}, the variance components are
 #' dropped.
 #' 
+#' @import dplyr
 #' @importFrom purrr pmap
 #' @importFrom abind abind
 #' 
@@ -189,9 +201,14 @@ combine_pop <- function(pop_list) {
   if (!all(sapply(X = pop_list, FUN = inherits, "pop")))
     stop("One of more of the elements in 'pop_list' is not a 'pop' object.")
   
-  # Create a new pop object
-  new_pop <- structure(vector("list", length(pop_list[[1]])), class = "pop", 
-                       names = names(pop_list[[1]]))
+  # Combine element names
+  element_names <- lapply(pop_list, names) %>% 
+    unlist() %>%
+    unique()
+  
+  # Create a new pop object with elements present in any of the pops
+  new_pop <- structure(vector("list", length(element_names)), class = "pop", 
+                       names = element_names)
   
   # Combine genotypes
   # First extract the 'geno' element from each pop
@@ -203,9 +220,9 @@ combine_pop <- function(pop_list) {
   new_pop$geno_val <- do.call("rbind", lapply(pop_list, "[[", "geno_val"))
 
   # Combine phenotypic values if present
-  if (!is.null(pop_list[[1]]$pheno_val)) {
+  if ("pheno_val" %in% element_names) {
     # Get rid of the variance component estimate
-    new_pop$pheno_val <- structure(vector("list", 2), names = names(pop_list[[1]]$pheno_val)[-1])
+    new_pop$pheno_val <- structure(vector("list", 2), names = c("pheno_obs", "pheno_mean"))
     
     # Subset the 'pheno_val' element
     pheno_list <- lapply(X = pop_list, FUN = "[[", "pheno_val")
@@ -217,13 +234,20 @@ combine_pop <- function(pop_list) {
   }
   
   # Combine haploids if present
-  if (!is.null(pop_list[[1]]$haploids)) {
+  if ("haploids" %in% element_names) {
     
-    # Subset the 'haplods' element
+    # Subset the 'haploids' element
     haploid_list <- lapply(X = pop_list, FUN = "[[", "haploids")
     
     # Empty array
     new_pop$haploids <- pmap(haploid_list, abind)
+    
+  }
+  
+  # Combine predicted genotypic values, if present
+  if ("pred_val" %in% element_names) {
+    
+    new_pop$pred_val <- do.call("rbind", lapply(pop_list, "[[", "pred_val"))
     
   }
   

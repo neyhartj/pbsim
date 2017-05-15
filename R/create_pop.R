@@ -56,6 +56,7 @@
 #' 
 #' 
 #' @import dplyr
+#' @importFrom abind abind
 #' 
 #' @export
 #' 
@@ -81,7 +82,8 @@ create_pop <- function(genome, geno) {
   if (type == "hypred") {
     
     # If the geno input is a list of arrays, recombine
-    if (all(sapply(geno, is.array))) {
+    if (is.list(geno)) {
+      
       # Calculate total dimensions
       n_row <- nrow(geno[[1]])
       n_col <- sum(sapply(geno, ncol))
@@ -90,8 +92,7 @@ create_pop <- function(genome, geno) {
       # Column names
       loci_names <- unlist(sapply(geno, colnames, simplify = FALSE))
       
-      geno <- array(do.call("cbind", geno), dim = c(n_row, n_col, n_ind),
-                    dimnames = list(NULL, loci_names, dimnames(geno[[1]])[[3]]))
+      geno <- abind::abind(geno, along = 2)
     }
     
     # Sort the haploids

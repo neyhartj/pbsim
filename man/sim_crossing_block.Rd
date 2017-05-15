@@ -13,14 +13,12 @@ sim_crossing_block(parents, second.parents, n.crosses, scheme = c("random",
 the entries in \code{parents}.}
 
 \item{second.parents}{A \code{character} of line names to use as parents. If
-not \code{NULL}, must be the same length as \code{parents}. Crosses are formed
-by randomly pairing the entries in \code{parents} with those in 
-\code{second.parents}, unless \code{scheme = "pass"} is specified.}
+passed, must be the same length as \code{parents}.}
 
 \item{n.crosses}{The number of crosses to generate. Cannot be more than the
 possible number of crosses.}
 
-\item{scheme}{The mating scheme. Can be one of \code{"random"} or \code{chain}.
+\item{scheme}{The mating scheme. Can be one of \code{"random"} or \code{"chain"}.
 See \emph{Details} for more information.}
 
 \item{use.parents.once}{\code{Logical} - should parents be used only once?}

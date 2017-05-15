@@ -100,7 +100,7 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
-  if (!check_pedigree(pedigree, ignore_sex = TRUE))
+  if (!simcross::check_pedigree(pedigree, ignore_sex = TRUE))
     stop("The pedigree is not formatted correctly.")
   
   # Get the genome type
@@ -195,6 +195,8 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
     
     dimnames(prog_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
     
+    
+    
   } else if (type == "hypred") {
     
     # If selfing is complete, error out
@@ -218,11 +220,11 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
           
           # Gamete1
           mom_id <- match(ped$mom, pedigree_append$id)
-          gamete1 <- recombine_hypred(genome = genome, haploids = pedigree_append$hap[[mom_id]])
+          gamete1 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[mom_id]])
           
           # Gamete2
           dad_id <- match(ped$dad, pedigree_append$id)
-          gamete2 <- recombine_hypred(genome = genome, haploids = pedigree_append$hap[[dad_id]])
+          gamete2 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[dad_id]])
           
           # Combine and return
           pmap(list(gamete1, gamete2), rbind) }, .to = "hap")
@@ -365,6 +367,7 @@ sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
       founder_geno <- subset_pop(pop = founder_pop, individual = c(.$parent1, .$parent2))
       sim_family(genome = genome, pedigree = pedigree, founder_pop = founder_geno, 
                  family.num = .$fam_num, ... = ...) })
+
   
   # Combine the populations and return
   combine_pop(pop_list = fam_cb$fam)
