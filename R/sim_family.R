@@ -76,7 +76,6 @@
 #' 
 #'  
 #' @import simcross
-#' @importFrom purrr by_row
 #' @importFrom purrr map
 #' @importFrom purrr pmap
 #' @importFrom stringr str_pad
@@ -211,23 +210,26 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
       
       if (g == 0) {
         
-        pedigree_append <- by_row(subset(pedigree, gen == g), function(ped)
-          map(gen0, function(chr_array) chr_array[,,ped$id]), .to = "hap")
+        pedigree_append <- subset(pedigree, gen == g) %>%
+          group_by_(.dots = names(.)) %>%
+          do(hap = {map(gen0, function(chr_array) chr_array[,,.$id])} )
         
       } else {
         
-        pedigree_append <- by_row(subset(pedigree, gen == g), function(ped) {
-          
-          # Gamete1
-          mom_id <- match(ped$mom, pedigree_append$id)
-          gamete1 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[mom_id]])
-          
-          # Gamete2
-          dad_id <- match(ped$dad, pedigree_append$id)
-          gamete2 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[dad_id]])
-          
-          # Combine and return
-          pmap(list(gamete1, gamete2), rbind) }, .to = "hap")
+        pedigree_append <- subset(pedigree, gen == g) %>%
+          group_by_(.dots = names(.)) %>%
+          do(hap = {
+            
+            # Gamete1
+            mom_id <- match(.$mom, pedigree_append$id)
+            gamete1 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[mom_id]])
+            
+            # Gamete2
+            dad_id <- match(.$dad, pedigree_append$id)
+            gamete2 <- pbsim:::recombine_hypred(genome = genome, haploids = pedigree_append$hap[[dad_id]])
+            
+            # Combine and return
+            pmap(list(gamete1, gamete2), rbind) })
         
       }}
 
