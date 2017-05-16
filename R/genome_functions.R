@@ -254,6 +254,8 @@ chrnames <- function(genome, chr) {
 #' @return 
 #' A vector of chromosome lengths.
 #' 
+#' @importFrom methods slot
+#' 
 #' @export
 #' 
 #' 
