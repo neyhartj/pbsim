@@ -299,14 +299,14 @@ combine_pop <- function(pop_list) {
 #' pop <- create_pop(genome = genome, geno = s2_cap_genos)
 #' pop <- sim_phenoval(pop, h2 = 0.5)
 #' 
-#' pop_selected <- selection(pop = pop, intensity = 50)
+#' pop_selected <- select_pop(pop = pop, intensity = 50)
 #' 
 #' @import dplyr
 #' 
 #' @export 
 #' 
-selection <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "random"),
-                      tail = c("upper", "tail")) {
+select_pop <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "random"),
+                      tail = c("upper", "lower")) {
   
   # Error handling
   # Make sure pop inherits the class "pop"
