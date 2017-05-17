@@ -3,7 +3,7 @@
 #' @param genome An object of class \code{genome}.
 #' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
 #' Use \code{\link{sim_pedigree}} to generate.
-#' @param founder_pop An object of class \code{pop} with the geno information for
+#' @param founder.pop An object of class \code{pop} with the geno information for
 #' the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
 #' object.
 #' 
@@ -39,23 +39,23 @@
 #'                         add.dist = "geometric", max.qtl = 50)
 #' 
 #' # Simulate the founder genotypes
-#' founder_pop <- sim_founders(genome)
+#' founder.pop <- sim_founders(genome)
 #' 
 #' # Create a pedigree with 100 individuals selfed to the F_3 generation
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 #' 
 #' # Create a pedigree with 100 RIL individuals
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = Inf)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 #' 
 #' # Create a pedigree with 100 doubled-haploid individuals induced after the F_2
 #' # generation.
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop, dh = TRUE)
 #'                   
 #' ## The above commands can be run using a hypred genome
 #' genome <- sim_genome(len, n.mar, type = "hypred")
@@ -66,13 +66,13 @@
 #'                         add.dist = "geometric", max.qtl = 50)
 #' 
 #' # Simulate the founder genotypes
-#' founder_pop <- sim_founders(genome)
+#' founder.pop <- sim_founders(genome)
 #' 
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 #' 
-#' fam <- sim_family(genome = genome, pedigree = ped, founder_pop = founder_pop, dh = TRUE)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop, dh = TRUE)
 #' 
 #'  
 #' @import simcross
@@ -84,18 +84,18 @@
 #' 
 #' @export
 #' 
-sim_family <- function(genome, pedigree, founder_pop, ...) {
+sim_family <- function(genome, pedigree, founder.pop, ...) {
   
   # Error
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Founder_pop needs to be a pop object
-  if (!inherits(founder_pop, "pop"))
-    stop("The input 'founder_pop' must be of class 'pop'")
+  # founder.pop needs to be a pop object
+  if (!inherits(founder.pop, "pop"))
+    stop("The input 'founder.pop' must be of class 'pop'")
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = founder_pop$geno))
+  if (!check_geno(genome = genome, geno = founder.pop$geno))
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
@@ -107,7 +107,7 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
   
   
   # How many founders?
-  n_founders <- nind(founder_pop)
+  n_founders <- nind(founder.pop)
   
   # Are the number of founders correct vis a vis the pedigree?
   if (n_founders != sum(pedigree$gen == 0))
@@ -183,7 +183,7 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
     }
     
     # Extract founder genotypes
-    founder_geno <- do.call("cbind", founder_pop$geno)
+    founder_geno <- do.call("cbind", founder.pop$geno)
     
     # Create a matrix with the founder1, het, and founder2 genotypes
     founder_multipoint <- rbind(founder_geno[1,], colMeans(founder_geno), founder_geno[2,])
@@ -203,7 +203,7 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
       stop("Complete selfing is not supported in 'hypred'")
       
     # Extract the haploids as generation 0
-    gen0 <- founder_pop$haploids
+    gen0 <- founder.pop$haploids
     
     # Iterate from generation 0 to max_gen
     for (g in seq(0, max_gen)) {
@@ -268,12 +268,12 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
 #' @param genome An object of class \code{genome}.
 #' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
 #' Use \code{\link{sim_pedigree}} to generate.
-#' @param founder_pop An object of class \code{pop} with the geno information for
+#' @param founder.pop An object of class \code{pop} with the geno information for
 #' the parents. Additional individuals can be present in \code{parent_pop}. They
-#' will be filtered according to the parents in the \code{crossing_block}.
-#' @param crossing_block A crossing block detailing the crosses to make. Must be a
+#' will be filtered according to the parents in the \code{crossing.block}.
+#' @param crossing.block A crossing block detailing the crosses to make. Must be a
 #' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
-#' second gives the name of parent 2. See \code{\link{sim_crossing_block}}.
+#' second gives the name of parent 2. See \code{\link{sim_crossing.block}}.
 #' @param ... Additional arguments passed to \code{\link{sim_family}}.
 #' 
 #' @return 
@@ -294,16 +294,16 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
 #'                         add.dist = "geometric", max.qtl = 50)
 #' 
 #' # Simulate the genotypes for 8 founders
-#' founder_pop <- sim_founders(genome = genome, n.str = 8)
+#' founder.pop <- sim_founders(genome = genome, n.str = 8)
 #' 
 #' # Generate a crossing block with 5 crosses
-#' cb <- sim_crossing_block(parents = indnames(founder_pop), n.crosses = 5)
+#' cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
 #' 
 #' # Create a pedigree with 100 individuals selfed to the F_3 generation
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
 #' # Simulate a group of families from the crossing block
-#' fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
+#' fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, crossing.block = cb)
 #' 
 #' 
 #' ## The above commands can be run using a hypred genome
@@ -315,34 +315,34 @@ sim_family <- function(genome, pedigree, founder_pop, ...) {
 #'                         add.dist = "geometric", max.qtl = 50)
 #' 
 #' # Simulate the genotypes for 8 founders
-#' founder_pop <- sim_founders(genome = genome, n.str = 8)
+#' founder.pop <- sim_founders(genome = genome, n.str = 8)
 #' 
 #' # Generate a crossing block with 5 crosses
-#' cb <- sim_crossing_block(parents = indnames(founder_pop), n.crosses = 5)
+#' cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
 #' 
 #' # Create a pedigree with 100 individuals selfed to the F_3 generation
 #' ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
 #' 
 #' # Simulate a group of families from the crossing block
-#' fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, crossing_block = cb)
+#' fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, crossing.block = cb)
 #' 
 #' @importFrom simcross check_pedigree
 #' @import dplyr
 #' 
 #' @export
 #' 
-sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
+sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   
   # Error habdling
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Founder_pop needs to be a pop object
-  if (!inherits(founder_pop, "pop"))
-    stop("The input 'founder_pop' must be of class 'pop'")
+  # founder.pop needs to be a pop object
+  if (!inherits(founder.pop, "pop"))
+    stop("The input 'founder.pop' must be of class 'pop'")
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = founder_pop$geno))
+  if (!check_geno(genome = genome, geno = founder.pop$geno))
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
@@ -350,25 +350,34 @@ sim_family_cb <- function(genome, pedigree, founder_pop, crossing_block, ...) {
     stop("The pedigree is not formatted correctly.")
   
   # Check the crossing block
-  if (ncol(crossing_block) != 2) {
+  if (ncol(crossing.block) != 2) {
     stop("The crossing block should have two columns.")
   } else {
-    crossing_block <- as.data.frame(crossing_block)
+    crossing.block <- as.data.frame(crossing.block)
   }
   
-  # Are all of the parents in the crossing block in the founder_pop?
-  if (!all(unique(unlist(crossing_block)) %in% indnames(founder_pop)))
-    stop("Not all of the parents in the crossing block are in the 'founder_pop'.")
+  # Are all of the parents in the crossing block in the founder.pop?
+  if (!all(unique(unlist(crossing.block)) %in% indnames(founder.pop)))
+    stop("Not all of the parents in the crossing block are in the 'founder.pop'.")
   
   # Simulate families for each cross
-  fam_cb <- crossing_block %>% 
+  fam_cb <- crossing.block %>% 
     # Add family number
     mutate(fam_num = row_number()) %>%
     rowwise() %>%
     do(fam = {
-      founder_geno <- subset_pop(pop = founder_pop, individual = c(.$parent1, .$parent2))
-      sim_family(genome = genome, pedigree = pedigree, founder_pop = founder_geno, 
+      founder_geno <- subset_pop(pop = founder.pop, individual = c(.$parent1, .$parent2))
+      sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
                  family.num = .$fam_num, ... = ...) })
+  
+  fam_cb <- crossing.block %>% 
+    # Add family number
+    mutate(fam_num = row_number()) %>%
+    rowwise() %>%
+    do(fam = {
+      founder_geno <- subset_pop(pop = founder.pop, individual = c(.$parent1, .$parent2))
+      sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
+                 family.num = .$fam_num, other.args) })
 
   
   # Combine the populations and return
