@@ -626,3 +626,145 @@ adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
   return(genome)
   
 } # Close the function
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
+#   
+#   # Check the genome and geno
+#   if (!check_geno(genome = genome, geno = geno))
+#     stop("The geno did not pass. See warning for reason.")
+#   
+#   # Make sure the genome has a genetic model
+#   if (is.null(genome$gen_model))
+#     stop("The 'genome' must have a genetic model. Use 'sim_gen_model' to create one.")
+#   
+#   # If the geno input is a list, recombine
+#   if (is.list(geno))
+#     geno <- do.call("cbind", geno)
+#   
+#   stopifnot(is.logical(pos.cor))
+#   
+#   # Are the QTL in the geno object?
+#   qtl_names <- pull_qtl(genome, unique = TRUE)$qtl_name
+#   
+#   if (!all(qtl_names %in% colnames(geno))) 
+#     stop("The QTL genotypes are not in the 'geno' object.")
+#   
+#   # Pull out the genotypic data for that QTL and the QTL1 pair
+#   qtl_geno <- pull_genotype(genome = genome, geno = geno, loci = qtl_names)
+#   
+#   # For each QTL in the second or more traits...
+#   for (t in seq(2, length(genome$gen_model))) {
+#     
+#     # Pull out the genetic model
+#     qtlmod_t <- genome$gen_model[[t]]
+#     
+#     # Empty vector to store modified qtl effects
+#     adj_add_eff <- vector("numeric", nrow(qtlmod_t))
+#     
+#     # Iterate over qtl
+#     for (i in seq(nrow(qtlmod_t))) {
+#       
+#       q <- qtlmod_t[i,]
+#       
+#       # If the qtl1_pair is NA, skip
+#       if (is.na(q$qtl1_pair)) {
+#         adj_add_eff[i] <- q$add_eff
+#         
+#       } else {
+#         
+#         # If the qtl_t name is the same as the qtl1 pair, the cor sign is 1
+#         if (q$qtl_name == q$qtl1_pair) {
+#           cor_sign <- 1
+#           
+#         } else {
+#           # Pull out the genotypic data for that QTL and the QTL1 pair
+#           qtl_geno_sub <- subset(qtl_geno, select = c(q$qtl_name, q$qtl1_pair))
+#           
+#           # What is the sign of the correlation?
+#           cor_sign <- sign(cor(qtl_geno[,1], qtl_geno[,2]))
+#           
+#         }
+#         
+#         # What is the sign of the qtl_t add_eff?
+#         qtl_t_sign <- sign(q$add_eff)
+#         # What is the sign of the qtl1 pair?
+#         qtl1_sign <- sign(subset(genome$gen_model[[1]], qtl_name == q$qtl1_pair, add_eff))
+#         
+#         # If the intended correlation is positive...
+#         if (pos.cor) {
+#           # If the geno corr sign is positive, the add_eff for qtl_t should be the same 
+#           # sign as that for qtl1
+#           if (cor_sign == 1) {
+#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
+#           } else{
+#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
+#           }
+#           
+#           # If the intended correlation is negative...
+#         } else {
+#           # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite 
+#           # sign as that for qtl1
+#           if (cor_sign == 1) {
+#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
+#           } else{
+#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
+#           }
+#           
+#         }
+#         
+#       }} # Close the loop
+#     
+#     # Edit the qtl model
+#     genome$gen_model[[t]] <- qtlmod_t %>%
+#       mutate(add_eff = adj_add_eff)
+#     
+#   } # Close the loop
+#   
+#   # Return the genome
+#   return(genome)
+#   
+# } # Close the function

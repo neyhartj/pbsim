@@ -377,7 +377,7 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
     do(fam = {
       founder_geno <- subset_pop(pop = founder.pop, individual = c(.$parent1, .$parent2))
       sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                 family.num = .$fam_num, other.args) })
+                 family.num = .$fam_num, ... = ...) })
 
   
   # Combine the populations and return
