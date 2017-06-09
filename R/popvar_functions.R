@@ -79,11 +79,8 @@ map_to_popvar <- function(genome) {
 #' @param crossing.block A crossing block detailing the crosses to make. Must be a
 #' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
 #' second gives the name of parent 2. See \code{\link{sim_crossing_block}}.
-#' @param n.rep The number of virtual bi-parental populations to simulate per cross.
-#' @param n.ind The number of individual in each virtual bi-parental population.
-#' @param tail.p The percentile to calculate the superior progeny mean. The 
-#' \emph{tail.p}% of predicted genotypic values is used to predict the superior
-#' progeny mean.
+#' @param k.sp The standardized selection coefficient (e.g. a selection intensity of 0.1 means k_sp ~ 1.745).
+#' @param map.function The map function for converting genetic distance to recomination fraction.
 #' 
 #' @examples 
 #' 
@@ -102,7 +99,7 @@ map_to_popvar <- function(genome) {
 #'                         add.dist = "geometric", max.qtl = 50)
 #'                         
 #' # Remove QTL from the second genome map
-#' map_use <- lapply(genome_map$map, function(chr) chr[setdiff(names(chr), qtlnames(genome))])
+#' map_use <- lapply(genome_use$map, function(chr) chr[setdiff(names(chr), qtlnames(genome))])
 #' 
 #' # Simulate the genotypes of eight founders
 #' founder_pop <- sim_founders(genome, n.str = 8)
@@ -118,68 +115,131 @@ map_to_popvar <- function(genome) {
 #' 
 #' # Use the map in the second genome to predict the genetic variance in the 
 #' # bi-parental populations
-#' pop_predict_quick(genome = genome, map = map_use, training.pop = founder_pop, founder.pop = founder_pop, 
-#'                   crossing.block = cb, n.rep = 3, n.ind = 50, tail.p = 0.1)
+#' pop_predict_quick(genome = genome, map = map_use, training.pop = founder_pop, 
+#'                   founder.pop = founder_pop, crossing.block = cb, k.sp = 1.745, 
+#'                   map.function = "haldane")
 #' 
 #' 
 #' 
 #' @import dplyr
-#' @importFrom qtl sim.cross
-#' @importFrom purrr map
-#' @importFrom purrr map_df
+#' @importFrom qtl sim.cross mf.h mf.k mf.m mf.cf
+#' @importFrom purrr map pmap
 #' 
 #' @export
 #' 
 pop_predict_quick <- function(genome, map, training.pop, founder.pop, crossing.block,
-                              n.rep, n.ind, tail.p) {
+                              k.sp, map.function = c("haldane","kosambi","cf","morgan")) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
+  # Set the map function
+  map.function <- match.arg(map.function)
+  
   # First predict marker effects
-  mar_eff <- pred_mar_eff(genome = genome, training.pop = training.pop)$mar_eff %>%
-    select(-marker) %>%
-    as.matrix()
+  mar_eff <- pred_mar_eff(genome = genome, training.pop = training.pop)$mar_eff
   
-  # Seq over the number of markers
-  j <- seq(nmar(genome))
+  # Predict genotypic values
+  pgv <- pred_geno_val(genome = genome, training.pop = training.pop, candidate.pop = founder.pop,
+                       method = "RRBLUP")
   
-  # Iterate over the crossing block
-  sim_fam <- crossing.block %>%
-    group_by(parent1, parent2) %>%
-    do({
+  # Convert the usable map to a df
+  map_df <- qtl::map2table(map) %>%
+    data.frame(marker = row.names(.), ., stringsAsFactors = FALSE)
+  
+  # Combine marker name, position, and effect
+  mar_specs <- full_join(x = map_df, mar_eff, by = "marker")
+  # Add marker names to row.names
+  row.names(mar_specs) <- mar_specs$marker
+  
+  # Calculate the pairwise distance between markers
+  mar_specs_pair <- mar_specs %>%
+    split(.$chr) %>%
+    map(function(mar_chr) {
       
-      # Subset the founders
-      parent_genos <- subset_pop(founder.pop, c(.$parent1, .$parent2)) %>%
-        genotype(genome = genome, pop = .)
+      # Pairwise combinations of markers
+      mar_pairs <- combn(x = mar_chr$marker, m = 2) %>% 
+        t() %>% 
+        data.frame(stringsAsFactors = FALSE) %>% 
+        structure(names = c("mar1", "mar2"))
       
-      # Simulate populations using qtl - replicate
-      cross_preds <- replicate(n.rep, expr = {
-        sim.cross(map = map, n.ind = n.ind, type = "riself") }, 
-        simplify = FALSE) %>%
-        
-        map(function(cross)
-          do.call("cbind", lapply(cross$geno, "[[", "data")) ) %>%
-        map_df(function(geno) {
-          
-          # Recode to parental
-          recode <- t(apply(geno, MARGIN = 1, FUN = function(ind) parent_genos[cbind(ind, j)]))
+      # Gather the marker effects and positions for those markers
+      mar_pairs %>%
+        mutate(mar1_eff = mar_chr[mar1, "trait1"], 
+               mar2_eff = mar_chr[mar2, "trait1"], 
+               mar1_pos = mar_chr[mar1, "pos"], 
+               mar2_pos = mar_chr[mar2, "pos"],
+               d = abs(mar1_pos - mar2_pos),
+               c = switch(map.function,
+                          haldane = mf.h(d),
+                          kosambi = mf.k(d),
+                          cf = mf.cf(d),
+                          morgan = mf.m(d)) ) %>%
+        select(mar1:mar2_eff, c) })
 
-          # Calculate PGV
-          pgv <- recode %*% mar_eff
-          
-          # Mean, variance, and superior progeny
-          data.frame(pred_mu = mean(pgv), pred_mu_sp = mean(sort(pgv, decreasing = TRUE)[seq(n)]),
-            pred_V_G = as.numeric(var(pgv))) })
-      
-      
-      # Summarize
-      cross_preds %>% 
-        summarise_each(funs(mean, sd)) })
   
-  # Output
-  as.data.frame(sim_fam)
+  # Iterate over the parents in the crossing block
+  crossing.block %>%
+    by_row(function(pars) {
+      
+      # Extract parental genotypes and recode
+      parents <- subset_pop(pop = founder.pop, individual = pars)$geno %>%
+        lapply(function(geno) geno - 1)
+      
+      # Iterate over the chromosomes of the parents and map
+      # Which markers are segregating?
+      mar_seg <- list(map, parents) %>%
+        pmap(function(map_chr, geno_chr)
+          geno_chr[,names(map_chr)] %>% 
+            apply(MARGIN = 2, FUN = function(snp) n_distinct(snp) > 1) %>%
+            which() %>%
+            names() )
+      
+      # Subset markers that are segregating and add the genotype of the first parent
+      mar_specs_pair_seg <- list(mar_specs_pair, parents, mar_seg) %>%
+        pmap(function(specs_chr, par_chr, seg_chr) {
+          specs_chr %>% 
+            filter(mar1 %in% seg_chr & mar2 %in% seg_chr) %>% 
+            mutate(mar1_par1 = par_chr[1,mar1], mar2_par1 = par_chr[1,mar2]) })
+      
+      
+      # Calculate the variance of each segregating marker
+      mar_var <- mar_specs_pair_seg %>%
+        bind_rows() %>%
+        distinct(mar1, .keep_all = TRUE) %>%
+        mutate(var_a = (mar1_eff^2)) %>%
+        summarize(var_a = sum(var_a))
+      
+      # Calculate the covariance between marker pairs
+      mar_covar <- mar_specs_pair_seg %>%
+        bind_rows() %>%
+        # Calculate covariance
+        mutate(frac = (1 - (2 * c)) / (1 + (2 * c)),
+               eff_prod = (mar1_eff * mar1_par1) * (mar2_eff * mar2_par1),
+               cov = frac * eff_prod ) %>%
+        summarize(covar = sum(cov))
+      
+      # Calculate the mean PGV based on the markers
+      pred_mu <- pgv$pred_val %>% 
+        filter(ind %in% pars) %>% 
+        summarize(mean_pgv = mean(trait1)) %>%
+        as.numeric()
+      
+      # Calculate genetic variance from the expected equation
+      pred_varG <- as.numeric(mar_var + (2 * mar_covar)) 
+      
+      # Calculate the mu_sp (high and low)
+      # From Zhong and Jannink 2007
+      pred_mu_sp_high <- pred_mu + (k.sp * pred_varG)
+      pred_mu_sp_low <- pred_mu - (k.sp * pred_varG)
+      
+      # Return vector
+      data.frame(pred_mu, pred_varG, pred_mu_sp_high, pred_mu_sp_low) }, .collate = "cols") %>%
+    
+    # Rename
+    rename(pred_mu = pred_mu1, pred_varG = pred_varG1, pred_mu_sp_high = pred_mu_sp_high1, 
+           pred_mu_sp_low = pred_mu_sp_low1)
   
 } # Close the function
         

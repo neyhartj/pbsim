@@ -4,8 +4,8 @@
 \alias{pop_predict_quick}
 \title{Quicker procedures for PopVar}
 \usage{
-pop_predict_quick(genome, map, training.pop, founder.pop, crossing.block, n.rep,
-  n.ind, tail.p)
+pop_predict_quick(genome, map, training.pop, founder.pop, crossing.block, k.sp,
+  map.function = c("haldane", "kosambi", "cf", "morgan"))
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -23,13 +23,9 @@ will be filtered according to the parents in the \code{crossing_block}.}
 \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
 second gives the name of parent 2. See \code{\link{sim_crossing_block}}.}
 
-\item{n.rep}{The number of virtual bi-parental populations to simulate per cross.}
+\item{k.sp}{The standardized selection coefficient (e.g. a selection intensity of 0.1 means k_sp ~ 1.745).}
 
-\item{n.ind}{The number of individual in each virtual bi-parental population.}
-
-\item{tail.p}{The percentile to calculate the superior progeny mean. The 
-\emph{tail.p}% of predicted genotypic values is used to predict the superior
-progeny mean.}
+\item{map.function}{The map function for converting genetic distance to recomination fraction.}
 }
 \description{
 Quicker procedures for PopVar
@@ -51,7 +47,7 @@ genome <- sim_gen_model(genome = genome, qtl.model = qtl.model,
                         add.dist = "geometric", max.qtl = 50)
                         
 # Remove QTL from the second genome map
-map_use <- lapply(genome_map$map, function(chr) chr[setdiff(names(chr), qtlnames(genome))])
+map_use <- lapply(genome_use$map, function(chr) chr[setdiff(names(chr), qtlnames(genome))])
 
 # Simulate the genotypes of eight founders
 founder_pop <- sim_founders(genome, n.str = 8)
@@ -67,8 +63,9 @@ cb <- sim_crossing_block(parents = parents, n.crosses = 5)
 
 # Use the map in the second genome to predict the genetic variance in the 
 # bi-parental populations
-pop_predict_quick(genome = genome, map = map_use, training.pop = founder_pop, founder.pop = founder_pop, 
-                  crossing.block = cb, n.rep = 3, n.ind = 50, tail.p = 0.1)
+pop_predict_quick(genome = genome, map = map_use, training.pop = founder_pop, 
+                  founder.pop = founder_pop, crossing.block = cb, k.sp = 1.745, 
+                  map.function = "haldane")
 
 
 

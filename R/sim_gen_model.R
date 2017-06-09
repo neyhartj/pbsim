@@ -191,8 +191,8 @@ sim_gen_model <- function(genome, qtl.model, ...) {
              argument must be passed.")
       
       # Make sure it has two columns
-      if (ncol(prob.corr) != 2)
-        stop("The 'prob.corr' input must have 2 columns.")
+      if (ncol(prob.corr) < 2)
+        stop("The 'prob.corr' input must have at least 2 columns.")
       
       # Are all probabilities between 0 and 1?
       if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
@@ -402,7 +402,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 
             # Randomly draw markers to be QTL, excluding those already designated as QTL
             avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
-                                     unlist(lapply(qtl_specs, "[[", "marker_name")))
+                                     unlist(lapply(qtl_specs, "[[", "qtl_name")))
             
             marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
 
@@ -516,51 +516,284 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' @param genome An object of class \code{genome}.
 #' @param geno Genotype data on a population to phenotype. Can be a matrix of dimensions
 #' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-#' of such matrices.  
+#' of such matrices.
+#' @param prob.corr Similar to the argument in \code{\link{sim_gen_model}}, except a 
+#' third column is required which specifies the minimum correlation (i.e. linkage
+#' disequilibrium) between QTL of one trait and QTL of another.
 #' @param pos.cor A logical indicating whether the two traits should be positively correlated.
 #' 
 #' @details 
 #' Although QTL for two traits can be linked, depending on the population, they
-#' may not be positively correlated. If a correlation between two traits is desired,
-#' this function will edit the additive effects in all but the first trait to 
+#' may not be highly correlated. If a correlation between two traits is desired,
+#' this function will first resample markers to become QTL based on the desired
+#' linkaged and correlations between the genotypes at those QTL. Next, the function
+#' will edit the additive effects in all but the first trait to 
 #' induce the desired correlation between traits.
 #' 
+#' @examples 
+#' # Load some historic data
+#' data("s2_cap_haploid")
+#' data("s2_snp_info")
+#' 
+#' # Create a genome
+#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), 
+#'               function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' 
+#' genome <- sim_genome(map = map, type = "hypred")
+#' 
+#' # Simulate two traits with 15 QTL, all with pairwise linkage of <= 2 cM
+#' qtl.model <- replicate(2, matrix(nrow = 15, ncol = 4), simplify = FALSE)
+#' prob.corr <- cbind(2, 1)
+#' 
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15, 
+#' prob.corr = prob.corr)
+#' 
+#' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
+#' 
+#' # Genetic correlation prior to adjustment
+#' cor(pop$geno_val$trait1, pop$geno_val$trait2)
+#' 
+#' # Adjust the genome
+#' prob.corr <- cbind(2, 1, 0.3)
+#' genome <- adj_gen_model(genome = genome, geno = s2_cap_haploid, prob.corr = prob.corr, 
+#' pos.corr = T)
+#' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
+#' 
+#' # Genetic correlation after adjustment
+#' cor(pop$geno_val$trait1, pop$geno_val$trait2)
+#' 
 #' @import dplyr
+#' @importFrom purrr pmap_chr
 #' 
 #' @export
 #' 
-adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
+adj_gen_model <- function(genome, geno, prob.corr, pos.corr = TRUE) {
   
   # Check the genome and geno
   if (!check_geno(genome = genome, geno = geno))
     stop("The geno did not pass. See warning for reason.")
   
+  # Pull out the genetic model from the genome
+  gen_model <- genome$gen_model
+  
   # Make sure the genome has a genetic model
-  if (is.null(genome$gen_model))
+  if (is.null(gen_model))
     stop("The 'genome' must have a genetic model. Use 'sim_gen_model' to create one.")
   
-  # If the geno input is a list, recombine
+  # If the geno input is a list, combine
   if (is.list(geno))
     geno <- do.call("cbind", geno)
   
-  stopifnot(is.logical(pos.cor))
+  # If the geno input is haploid data, convert to geno
+  if (is_haploid(geno))
+    geno <- haploid_to_geno(geno)
   
   # Are the QTL in the geno object?
   qtl_names <- pull_qtl(genome, unique = TRUE)$qtl_name
   
-  if (!all(qtl_names %in% colnames(geno))) 
+  if (!all(qtl_names %in% colnames(geno)))
     stop("The QTL genotypes are not in the 'geno' object.")
   
-  # Pull out the genotypic data for that QTL and the QTL1 pair
-  qtl_geno <- pull_genotype(genome = genome, geno = geno, loci = qtl_names)
   
-  # For each QTL in the second or more traits...
-  for (t in seq(2, length(genome$gen_model))) {
+  # Error handling of prob.corr
+  # Make sure it has three columns
+  if (ncol(prob.corr) < 3)
+    stop("The 'prob.corr' input must have 3 columns.")
+  
+  # Are all probabilities between 0 and 1?
+  if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
+    stop("The probabilities in 'prob.corr' are not all between 0 and 1.")
+  
+  # Are all correlations between 0 and 1?
+  if (!all(prob.corr[,3] >= 0 & prob.corr[,3] <= 1))
+    stop("The minimum correlations in 'prob.corr' are not all between 0 and 1.")
+  
+  # Do the probabilities sum to 1
+  if (!sum(prob.corr[,2]) == 1)
+    stop("The probabilities in 'prob.corr' do not sum to 1.")
+  
+  # Are any of the levels of p greater than 50 or less than 0
+  if (!all(prob.corr[,1] >= 0 & prob.corr[,1] <= 50))
+    stop("The distances in 'prob.corr' must be between 0 and 50.")
+  
+  # Sort the matrix on order of p
+  prob.corr <- prob.corr[order(prob.corr[,1]),, drop = FALSE]
+  
+  
+  # How many traits?
+  n_trait <- length(gen_model)
+  
+  # If only one trait, return unedited
+  if (n_trait == 1) {
+    warning("The function 'adj_gen_model' is only intended for genetic models with
+            more than one trait. The genome is returned unedited.")
+    return(genome)
+  }
+  
+  
+  
+  
+  # Otherwise start adjustment
+  
+  ## Iterate over the remaining traits
+  for (t in seq(2, n_trait)) {
     
-    # Pull out the genetic model
-    qtlmod_t <- genome$gen_model[[t]]
+    # Pull out the genetic model and subset QTL for which the QTL1 pair is not NA or
+    # pleiotropic QTL
+    qtlmod_t <- gen_model[[t]] %>% 
+      subset(!is.na(qtl1_pair) & qtl_name != qtl1_pair)
     
-    # Empty vector to store modified qtl effects
+    # Save those filtered QTL for later
+    qtlmod_t_save <- gen_model[[t]] %>% 
+      subset(is.na(qtl1_pair) | qtl_name == qtl1_pair)
+    
+    # Number of QTL
+    n_qtl <- nrow(qtlmod_t)
+    
+    # Remove anything above 50 in the prob.corr or 0
+    prob.corr <- subset(prob.corr, prob.corr[,1] < 50 & prob.corr[,1] > 0)
+    
+    # Pull out the linkage levels
+    corr_level <- prob.corr[,c(1,3), drop = FALSE]
+    
+    
+    # If the length of the corr_level is 0, don't do anything
+    if (nrow(corr_level) > 0) {
+      
+      # Extract the linkage levels
+      linkage <- corr_level[,1, drop = TRUE]
+      
+      # Re-assign corr_levels based on the prob.corr matrix
+      # If the length of prob.corr is 1, output a vector of that prob.corr
+      if (nrow(prob.corr) == 1) {
+        qtl_designator <- rep(x = linkage, times = n_qtl)
+        
+      } else {
+        # Randomly designated each QTL to share some correlation with QTL of the
+        # first trait
+        qtl_designator <- sample(linkage, size = n_qtl, prob = prob.corr[,2], replace = TRUE)
+      }
+      
+      ## Create a vector of row numbers from which to draw QTL from trait 1
+      ## These must be "real" QTL (i.e. add_eff > 0)
+      qtl1_row_vec <- which(gen_model[[1]]$add_eff != 0)
+      
+      # Create an empty data.frame to contain the new QTL information
+      qtlmod_t_new <- as.data.frame(
+        matrix(data = NA, nrow = nrow(qtlmod_t), ncol = 6, dimnames = list(NULL, names(qtlmod_t)))
+      )
+      
+      ## Iterate over the correlation levels
+      for (p in seq(nrow(corr_level))) {
+        
+        linkage <- corr_level[p,1, drop = TRUE]
+        corr <- corr_level[p,2, drop = TRUE]
+        
+        ## Sample QTL for linkage
+        
+        # Sample QTL from trait 1
+        qtl_one_sample <- sample(qtl1_row_vec, size = sum(qtl_designator == linkage))
+        
+        # If the length of the sample is 0, skip
+        if (length(qtl_one_sample) == 0)
+          next
+        
+        # Get those QTL positions
+        qtl_one_pos <- gen_model[[1]][qtl_one_sample, , drop = FALSE]
+        
+        # What is the previous level of p? If it is the first, set the minimum 
+        # distance to 0.000001
+        prev_p <- match(linkage, prob.corr[,1]) - 1
+        min_dist <- ifelse(prev_p == 0, 1e-6, corr_level[prev_p])
+        
+        # If min_dist is 0, set to 1e-6
+        min_dist <- ifelse(min_dist == 0, 1e-6, min_dist)
+        
+        # Max dist is equal to p
+        max_dist <- linkage
+        
+        
+        # Sample from markers in the range
+        prox_mar <- find_proxmarkers(genome = genome, marker = qtl_one_pos$qtl_name,
+                                     min.dist = min_dist, max.dist = max_dist)
+        
+        
+        
+        # For each of those markers, find the correlation between the genotypes of
+        # that marker and all of the proximal markers
+        prox_mar_sample <- pmap_chr(list(names(prox_mar), prox_mar), function(qtl1, prox_qtl) {
+          
+          # If prox_qtl has length 0, return NA
+          if (length(prox_qtl) == 0)
+            return(NA)
+          
+          geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(qtl1, prox_qtl))
+          # Subset for the qtl1
+          qtl1_cor <- cor(geno_q)[qtl1, , drop = TRUE]
+          
+          # Are there markers with correlations above the threshold?
+          test_corr <- abs(qtl1_cor[-1]) >= corr
+          
+          if (any(test_corr)) {
+            # If so, sample one and return
+            sample(names(which(test_corr)), 1)
+            
+          } else {
+            # If not, return NA
+            return(NA)
+            
+          } })
+        
+        # Add the new names back into the matrix
+        qtlmod_t_new$qtl_name[qtl_designator == linkage] <- prox_mar_sample
+        qtlmod_t_new$qtl1_pair[qtl_designator == linkage] <- qtl_one_pos$qtl_name
+        
+      } # Close the per-corr_level loop
+      
+      # Add effect information back in
+      qtlmod_t_new[,3:4] <- qtlmod_t[,3:4]
+      
+      # Add position information back in
+      qtlmod_t_new[,1:2] <- find_markerpos(genome = genome, marker = qtlmod_t_new$qtl_name)
+      
+      # Add the saved qtlmod information and sort
+      qtlmod_t_new1 <- bind_rows(qtlmod_t_new, qtlmod_t_save)
+      
+      # Add this new df to the gen_model
+      gen_model[[t]] <- qtlmod_t_new1
+      
+    } # Close if statement
+    
+    
+    if (any(is.na(gen_model[[t]]$qtl_name))) {
+      
+      # Clear the information for those QTL with NA qtl names (except for effects)
+      gen_model[[t]][is.na(gen_model[[t]]$qtl_name),-c(3:4)] <- NA
+      
+      ## Resample markers for QTL for those with NA
+      # Randomly draw markers to be QTL, excluding those already designated as QTL
+      avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
+                               unlist(lapply(gen_model, "[[", "qtl_name")))
+      
+      marker_sample <- sample(x = avail_markers, size = sum(is.na(gen_model[[t]]$qtl_name)))
+      
+      # Get the positions of those markers
+      marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
+        mutate(marker = row.names(.))
+      
+      # Assign this info to the qtl_specs df for trait t
+      gen_model[[t]][which(is.na(gen_model[[t]]$qtl_name)), c("chr", "pos", "qtl_name")] <- marker_sample_pos
+      
+    }
+    
+    # Reorder on chr and pos
+    gen_model[[t]] <- gen_model[[t]]%>%
+      arrange(chr, pos)
+    
+    # Pull out the model again
+    qtlmod_t <- gen_model[[t]]
+    
+    # A new vector of additive effects
     adj_add_eff <- vector("numeric", nrow(qtlmod_t))
     
     # Iterate over qtl
@@ -580,21 +813,21 @@ adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
           
         } else {
           # Pull out the genotypic data for that QTL and the QTL1 pair
-          qtl_geno_sub <- subset(qtl_geno, select = c(q$qtl_name, q$qtl1_pair))
-        
+          geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(q$qtl_name, q$qtl1_pair))
+          
           # What is the sign of the correlation?
-          cor_sign <- sign(cor(qtl_geno[,1], qtl_geno[,2]))
+          cor_sign <- sign(cor(geno_q)[-1,1])
           
         }
         
         # What is the sign of the qtl_t add_eff?
         qtl_t_sign <- sign(q$add_eff)
         # What is the sign of the qtl1 pair?
-        qtl1_sign <- sign(subset(genome$gen_model[[1]], qtl_name == q$qtl1_pair, add_eff))
+        qtl1_sign <- sign(subset(genome$gen_model[[1]], qtl_name == q$qtl1_pair, add_eff, drop = TRUE))
         
         # If the intended correlation is positive...
-        if (pos.cor) {
-          # If the geno corr sign is positive, the add_eff for qtl_t should be the same 
+        if (pos.corr) {
+          # If the geno corr sign is positive, the add_eff for qtl_t should be the same
           # sign as that for qtl1
           if (cor_sign == 1) {
             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
@@ -604,7 +837,7 @@ adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
           
           # If the intended correlation is negative...
         } else {
-          # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite 
+          # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite
           # sign as that for qtl1
           if (cor_sign == 1) {
             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
@@ -616,155 +849,19 @@ adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
         
       }} # Close the loop
     
-    # Edit the qtl model
-    genome$gen_model[[t]] <- qtlmod_t %>%
-      mutate(add_eff = adj_add_eff)
+    # Edit the model
+    gen_model[[t]] <- qtlmod_t %>%
+      mutate(chr = factor(chr, levels = chrnames(genome)),
+             add_eff = adj_add_eff)
     
-  } # Close the loop
+  } # Close the trait loop
+  
+  # Add the model back to the genome
+  genome$gen_model <- gen_model
   
   # Return the genome
   return(genome)
   
+  
 } # Close the function
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# adj_gen_model <- function(genome, geno, pos.cor = TRUE) {
-#   
-#   # Check the genome and geno
-#   if (!check_geno(genome = genome, geno = geno))
-#     stop("The geno did not pass. See warning for reason.")
-#   
-#   # Make sure the genome has a genetic model
-#   if (is.null(genome$gen_model))
-#     stop("The 'genome' must have a genetic model. Use 'sim_gen_model' to create one.")
-#   
-#   # If the geno input is a list, recombine
-#   if (is.list(geno))
-#     geno <- do.call("cbind", geno)
-#   
-#   stopifnot(is.logical(pos.cor))
-#   
-#   # Are the QTL in the geno object?
-#   qtl_names <- pull_qtl(genome, unique = TRUE)$qtl_name
-#   
-#   if (!all(qtl_names %in% colnames(geno))) 
-#     stop("The QTL genotypes are not in the 'geno' object.")
-#   
-#   # Pull out the genotypic data for that QTL and the QTL1 pair
-#   qtl_geno <- pull_genotype(genome = genome, geno = geno, loci = qtl_names)
-#   
-#   # For each QTL in the second or more traits...
-#   for (t in seq(2, length(genome$gen_model))) {
-#     
-#     # Pull out the genetic model
-#     qtlmod_t <- genome$gen_model[[t]]
-#     
-#     # Empty vector to store modified qtl effects
-#     adj_add_eff <- vector("numeric", nrow(qtlmod_t))
-#     
-#     # Iterate over qtl
-#     for (i in seq(nrow(qtlmod_t))) {
-#       
-#       q <- qtlmod_t[i,]
-#       
-#       # If the qtl1_pair is NA, skip
-#       if (is.na(q$qtl1_pair)) {
-#         adj_add_eff[i] <- q$add_eff
-#         
-#       } else {
-#         
-#         # If the qtl_t name is the same as the qtl1 pair, the cor sign is 1
-#         if (q$qtl_name == q$qtl1_pair) {
-#           cor_sign <- 1
-#           
-#         } else {
-#           # Pull out the genotypic data for that QTL and the QTL1 pair
-#           qtl_geno_sub <- subset(qtl_geno, select = c(q$qtl_name, q$qtl1_pair))
-#           
-#           # What is the sign of the correlation?
-#           cor_sign <- sign(cor(qtl_geno[,1], qtl_geno[,2]))
-#           
-#         }
-#         
-#         # What is the sign of the qtl_t add_eff?
-#         qtl_t_sign <- sign(q$add_eff)
-#         # What is the sign of the qtl1 pair?
-#         qtl1_sign <- sign(subset(genome$gen_model[[1]], qtl_name == q$qtl1_pair, add_eff))
-#         
-#         # If the intended correlation is positive...
-#         if (pos.cor) {
-#           # If the geno corr sign is positive, the add_eff for qtl_t should be the same 
-#           # sign as that for qtl1
-#           if (cor_sign == 1) {
-#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
-#           } else{
-#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
-#           }
-#           
-#           # If the intended correlation is negative...
-#         } else {
-#           # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite 
-#           # sign as that for qtl1
-#           if (cor_sign == 1) {
-#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
-#           } else{
-#             adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
-#           }
-#           
-#         }
-#         
-#       }} # Close the loop
-#     
-#     # Edit the qtl model
-#     genome$gen_model[[t]] <- qtlmod_t %>%
-#       mutate(add_eff = adj_add_eff)
-#     
-#   } # Close the loop
-#   
-#   # Return the genome
-#   return(genome)
-#   
-# } # Close the function
