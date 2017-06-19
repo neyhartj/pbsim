@@ -75,218 +75,83 @@ Two maps were downloaded for all SNPs
 
 ## Processing
 
-### Two Row Barley Data
+### Genetic Maps
 
+First the genetic maps of @Close2009 and @Munoz-Amatriain2011 will be jittered so they are consistent in the two-row and six-row genetic data.
 
-```{r process}
+```{r map.adj}
 
-
-
-# Read in the data ### EDIT THIS ###
-s2_genos <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/Unfiltered/genotype.hmp.txt")
-
-# Extract the metadata (map, chromosome, etc)
-snp_info <- s2_genos %>%
+# Read in the s2 data
+## Directory of the unzipped download folder for the Spring Two-Row CAP Lines
+s2_data_dir <- "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/"
+# Read in the data
+s2_genos <- read_tsv(file = file.path(s2_data_dir, "genotype.hmp.txt"))
+# Extract the map
+s2_snp_info <- s2_genos %>%
   select(rs:pos)
 
-# Calculate cM position from the hecto-Morgan positions given
-snp_info1 <- snp_info %>%
+## Directory of the unzipped download folder for the Spring Six-Row CAP Lines
+s6_data_dir <- "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S6TP_BOPA/"
+# Read in the data
+s6_genos <- read_tsv(file = file.path(s6_data_dir, "genotype.hmp.txt"))
+# Extract the map
+s6_snp_info <- s6_genos %>%
+  select(rs:pos)
+
+
+# Find the common markers
+common_markers <- intersect(s2_snp_info$rs, s6_snp_info$rs)
+
+# Designate the order of these markers as the ma_map
+# Also remove those with unknown positions
+ma_map <- s2_snp_info %>%
+  filter(rs %in% common_markers,
+         chrom != "UNK") %>%
+  select(-alleles)
+
+# Read in the Close 2009 map
+close_map <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/close_et_al_09_genetic_map.txt", skip = 1, col_names = c("rs", "chrom", "pos"))
+
+# Extract only markers in the ma_map
+close_map1 <- close_map %>% 
+  filter(rs %in% ma_map$rs,
+         chrom != "UNK") %>%
+  # Convert hecto-Morgans to cM
+  rename(cM_pos = pos)
+
+# And reciprocate for the ma map
+ma_map1 <- ma_map %>%
+  filter(rs %in% close_map1$rs) %>%
+  # Convert hecto-Morgans to cM
   mutate(cM_pos = pos / 1000) %>%
   select(-pos)
 
 
-# Trim the genotype matrix
-s2_genos_mat <- s2_genos %>%
-  select(-rs:-pos) %>%
-  mutate_each(funs = funs(parse_number)) %>%
-  as.matrix()
 
-# Add rownames
-row.names(s2_genos_mat) <- snp_info1$rs
+# Convert each to a qtl map and jitter, the convert back to a table
+ma_map2 <- ma_map1 %>% 
+  as.data.frame() %>% 
+  column_to_rownames("rs") %>% 
+  qtl::table2map() %>%
+  qtl::jittermap() %>%
+  qtl::map2table() %>%
+  rownames_to_column("rs") %>%
+  rename(chrom = chr, cM_pos = pos)
 
-# Transpose
-s2_genos_mat1 <- t(s2_genos_mat)
-
-# Remove markers with > 10% missing data
-marker_missing <- s2_genos_mat1 %>%
-  is.na() %>%
-  colMeans()
-
-s2_genos_mat2 <- s2_genos_mat1[,marker_missing <= 0.10]
-
-# Remove entries with > 10% missing data
-entry_missing <- s2_genos_mat2 %>%
-  is.na() %>%
-  rowMeans()
-
-s2_genos_mat3 <- s2_genos_mat2[entry_missing <= 0.10,]
-
-# Remove markers with < 0.05 MAF
-marker_MAF <- (s2_genos_mat3 + 1) %>%
-  colMeans(na.rm = T) %>%
-  {. / 2} %>% 
-  sapply(FUN = function(freq) min(freq, 1-freq))
-
-s2_genos_mat4 <- s2_genos_mat3[,marker_MAF >= 0.05]
-
-# Trim the snp_info data.frame and remove unknown
-snp_info2 <- snp_info1 %>% 
-  filter(rs %in% colnames(s2_genos_mat4),
-         chrom != "UNK")
-
-# Remove the unknowns from the genotype matrix
-s2_genos_mat5 <- s2_genos_mat4[,snp_info2$rs]
-
-
-### Processing of the marker matrix for use in simulation
-# Remove redundant markers
-# These are characterized by having the same genotypes across all samples AND fall on the same cM position
-
-# Split the marker information by unique position
-unique_snp_list <- snp_info2 %>% 
-  split(list(.$chrom, .$cM_pos))
-
-# Remove NULL
-unique_snp_list <- unique_snp_list[sapply(unique_snp_list, nrow) != 0]
-
-# Apply a function to each group of unique SNPs
-non.redundant.marker.list <- lapply(unique_snp_list, FUN = function(uniq_info) {
-  
-  # If the number of markers is 1, just return the marker
-  if (nrow(uniq_info) == 1) {
-    return(uniq_info)
-    
-  } else { # Otherwise look more closely
-    
-    # Extract the marker names
-    marker.names <- uniq_info$rs
-
-    M.i <- s2_genos_mat5[,marker.names, drop = FALSE]
-    
-    # Determine if the genotype calls are the same between markers
-    same.genos <- identical.columns(input.matrix = M.i)
-    
-    # Choose the first index from each group
-    # Gather the names of the chosen markers
-    non.redundant.marker.names <- colnames(M.i)[sapply(X = same.genos, FUN = function(group) group[1])]
-    
-    # Extract marker info for those markers and return
-    snp_info2 %>%
-      filter(rs %in% non.redundant.marker.names)
-
-  } })
-    
-# Collapse the list
-snp_info3 <- bind_rows(non.redundant.marker.list) %>%
-  arrange(chrom, cM_pos)
-
-# Extract the map
-gen_map <- snp_info3 %>% 
-  split(.$chrom) %>% 
-  map(select, cM_pos) %>% 
-  map(unlist)
-
-class(gen_map) <- "map"
-
-# Jitter the map
-gen_map_jitter <- jittermap(gen_map) %>%
-  unlist()
-
-# Replace the snp_info map
-snp_info4 <- snp_info3 %>% 
-  mutate(cM_pos = gen_map_jitter)
-
-# Subset the genotype matrix again
-s2_genos_mat6 <- s2_genos_mat5[,snp_info4$rs]
-
-## Impute
-# Set hets to missing
-s2_genos_mat6[s2_genos_mat6 == 0] <- NA
-
-# Impute using mean
-s2_genos_imputed <- s2_genos_mat6 %>% 
-  apply(MARGIN = 2, FUN = function(snp) {
-    # Mean genotype
-    mean_geno <- mean(snp, na.rm = T)
-    # Round
-    mean_geno <- ifelse(mean_geno < 0, -1, 1)
-    snp[is.na(snp)] <- mean_geno
-    return(snp) })
-
-s2_cap_genos <- s2_genos_imputed + 1
-
-s2_snp_info <- snp_info4
-
-# Convert the genotypes to an array of haploid chromosomes
-s2_cap_haploid <- split(s2_cap_genos, 1:nrow(s2_cap_genos), drop = FALSE) %>%
-  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
-
-# Empty array
-s2_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s2_cap_genos), length(s2_cap_haploid)),
-                              dimnames = list(NULL, colnames(s2_cap_genos), row.names(s2_cap_genos)))
-
-for (k in seq_along(s2_cap_haploid)) {
-  s2_cap_haploid_array[,,k] <- s2_cap_haploid[[k]]
-}
-
-
-# Rename
-s2_cap_haploid <- s2_cap_haploid_array
-
-
-### REMOVE THIS ###
-devtools::use_data(s2_cap_genos, s2_snp_info, s2_cap_haploid, overwrite = T)
-
+close_map2 <- close_map1 %>% 
+  as.data.frame() %>% 
+  column_to_rownames("rs") %>% 
+  qtl::table2map() %>%
+  qtl::jittermap() %>%
+  qtl::map2table() %>%
+  rownames_to_column("rs") %>%
+  rename(chrom = chr, cM_pos = pos)
 
 ```
 
-### Six-Row Barley Data
-
-Direct to previous package
-
-```{r}
-
-data("s6_cap_genos")
-
-# Convert the genotypes to an array of haploid chromosomes
-s6_cap_haploid <- split(s6_cap_genos, 1:nrow(s6_cap_genos), drop = FALSE) %>%
-  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
-
-# Empty array
-s6_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s6_cap_genos), length(s6_cap_haploid)),
-                              dimnames = list(NULL, colnames(s6_cap_genos), row.names(s6_cap_genos)))
-
-for (k in seq_along(s6_cap_haploid)) {
-  s6_cap_haploid_array[,,k] <- s6_cap_haploid[[k]]
-}
 
 
-# Rename
-s6_cap_haploid <- s6_cap_haploid_array
 
-devtools::use_data(s6_cap_genos, s6_snp_info, s6_cap_haploid, overwrite = T)
-
-
-```
-
-### Genetic Maps
-
-For both the `s2_snp_info` map and the `s6_snp_info` map, we will take the markers,
-find their positions on the @Close2009 map, then create second maps in a list
-
-Unanchored markers in the Close map will be given the same chromosome as in the MA map, however with a position of 0
-
-```{r map.adj}
-
-data("s2_snp_info")
-data("s6_snp_info")
-
-# Read in the Close 2009 map
-close_map <- read_tsv(file = "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/Unfiltered/geneticMap_Close2009.txt", skip = 1, col_names = c("rs", "chrom", "cM_pos"))
-
-# Calculate cM position from the hecto-Morgan positions given
-close_map1 <- close_map %>%
-  mutate(cM_pos = cM_pos / 1000)
 
 # Find the positions of the markers in the s2_snp_info and s6_snp_info map in the close_map
 s2_snp_info_Close09 <- inner_join(x = close_map1, y = select(s2_snp_info, rs, alleles))
@@ -338,6 +203,358 @@ s6_snp_info_Close09 <- s6_snp_info_Close09 %>%
   mutate(cM_pos = unlist(s6_map_jitter))
 
 devtools::use_data(s2_snp_info_Close09, s6_snp_info_Close09, overwrite = T)
+
+
+
+### Two Row Barley Data
+
+
+```{r process}
+
+## Directory of the unzipped download folder for the Spring Two-Row CAP Lines
+s2_data_dir <- "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S2TP_BOPA/"
+
+
+# Read in the data
+s2_genos <- read_tsv(file = file.path(s2_data_dir, "genotype.hmp.txt"))
+
+# Extract the metadata (map, chromosome, etc)
+snp_info <- s2_genos %>%
+  select(rs:pos)
+
+# Calculate cM position from the hecto-Morgan positions given
+snp_info1 <- snp_info %>%
+  mutate(cM_pos = pos / 1000) %>%
+  select(-pos)
+
+
+# Trim the genotype matrix
+s2_genos_mat <- s2_genos %>%
+  select(-rs:-pos) %>%
+  mutate_each(funs = funs(parse_number)) %>%
+  as.matrix()
+
+# Add rownames
+row.names(s2_genos_mat) <- snp_info1$rs
+
+# Transpose
+s2_genos_mat1 <- t(s2_genos_mat)
+
+## Remove markers with > 10% missing data
+marker_missing <- is.na(s2_genos_mat1) %>%
+  colMeans()
+
+s2_genos_mat2 <- s2_genos_mat1[,marker_missing <= 0.10]
+
+# Remove entries with > 10% missing data
+entry_missing <- is.na(s2_genos_mat2) %>%
+  rowMeans()
+
+s2_genos_mat3 <- s2_genos_mat2[entry_missing <= 0.10,]
+
+# Remove markers that are monomorphic over the whole population
+marker_polymorphic <- s2_genos_mat3 %>% 
+  apply(MARGIN = 2, FUN = n_distinct, na.rm = T) %>%
+  {. > 1}
+
+s2_genos_mat4 <- s2_genos_mat3[,marker_polymorphic]
+
+# Trim the snp_info data.frame and remove unknown
+snp_info2 <- snp_info1 %>% 
+  filter(rs %in% colnames(s2_genos_mat4),
+         chrom != "UNK")
+
+# Remove the unknowns from the genotype matrix
+s2_genos_mat5 <- s2_genos_mat4[,snp_info2$rs]
+
+
+### Processing of the marker matrix for use in simulation
+# Remove redundant markers
+# These are characterized by having the same genotypes across all samples AND fall on the same cM position
+
+# Split the marker information by unique position
+unique_snp_list <- snp_info2 %>% 
+  split(list(.$chrom, .$cM_pos))
+
+# Remove NULL
+unique_snp_list <- unique_snp_list[sapply(unique_snp_list, nrow) != 0]
+
+# Apply a function to each group of unique SNPs
+non_redundant_marker_list <- lapply(unique_snp_list, FUN = function(uniq_info) {
+  
+  # If the number of markers is 1, just return the marker
+  if (nrow(uniq_info) == 1) {
+    return(uniq_info)
+    
+  } else { # Otherwise look more closely
+    
+    # Extract the marker names
+    marker.names <- uniq_info$rs
+
+    M.i <- s2_genos_mat5[,marker.names, drop = FALSE]
+    
+    # Determine if the genotype calls are the same between markers
+    same.genos <- identical.columns(input.matrix = M.i)
+    
+    # Choose the first index from each group
+    # Gather the names of the chosen markers
+    non.redundant.marker.names <- colnames(M.i)[sapply(X = same.genos, FUN = function(group) group[1])]
+    
+    # Extract marker info for those markers and return
+    snp_info2 %>%
+      filter(rs %in% non.redundant.marker.names)
+
+  } })
+    
+# Collapse the list
+snp_info3 <- bind_rows(non_redundant_marker_list) %>%
+  arrange(chrom, cM_pos)
+
+# Subset the genotype matrix again
+s2_genos_mat6 <- s2_genos_mat5[,snp_info3$rs]
+
+## Impute
+# Set hets to missing
+s2_genos_mat6[s2_genos_mat6 == 0] <- NA
+
+# Impute using mean
+s2_genos_imputed <- s2_genos_mat6 %>% 
+  apply(MARGIN = 2, FUN = function(snp) {
+    # Mean genotype
+    mean_geno <- mean(snp, na.rm = T)
+    # Round
+    mean_geno <- ifelse(mean_geno < 0, -1, 1)
+    snp[is.na(snp)] <- mean_geno
+    return(snp) })
+
+s2_cap_genos <- s2_genos_imputed + 1
+
+s2_snp_info <- snp_info3
+
+# Convert the genotypes to an array of haploid chromosomes
+s2_cap_haploid <- split(s2_cap_genos, 1:nrow(s2_cap_genos), drop = FALSE) %>%
+  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+
+# Empty array
+s2_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s2_cap_genos), length(s2_cap_haploid)),
+                              dimnames = list(NULL, colnames(s2_cap_genos), row.names(s2_cap_genos)))
+
+for (k in seq_along(s2_cap_haploid)) {
+  s2_cap_haploid_array[,,k] <- s2_cap_haploid[[k]]
+}
+
+
+# Rename
+s2_cap_haploid <- s2_cap_haploid_array
+
+
+### REMOVE THIS ###
+# devtools::use_data(s2_cap_genos, s2_snp_info, s2_cap_haploid, overwrite = T)
+
+
+```
+
+### Six-Row Barley Data
+
+```{r process}
+
+## Directory of the unzipped download folder for the Spring Two-Row CAP Lines
+s6_data_dir <- "C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/S6TP_BOPA/"
+
+
+# Read in the data
+s6_genos <- read_tsv(file = file.path(s6_data_dir, "genotype.hmp.txt"))
+
+# Extract the metadata (map, chromosome, etc)
+snp_info <- s6_genos %>%
+  select(rs:pos)
+
+# Calculate cM position from the hecto-Morgan positions given
+snp_info1 <- snp_info %>%
+  mutate(cM_pos = pos / 1000) %>%
+  select(-pos)
+
+
+# Trim the genotype matrix
+s6_genos_mat <- s6_genos %>%
+  select(-rs:-pos) %>%
+  mutate_each(funs = funs(parse_number)) %>%
+  as.matrix()
+
+# Add rownames
+row.names(s6_genos_mat) <- snp_info1$rs
+
+# Transpose
+s6_genos_mat1 <- t(s6_genos_mat)
+
+## Remove markers with > 10% missing data
+marker_missing <- is.na(s6_genos_mat1) %>%
+  colMeans()
+
+s6_genos_mat2 <- s6_genos_mat1[,marker_missing <= 0.10]
+
+# Remove entries with > 10% missing data
+entry_missing <- is.na(s6_genos_mat2) %>%
+  rowMeans()
+
+s6_genos_mat3 <- s6_genos_mat2[entry_missing <= 0.10,]
+
+# Keep only markers that are polymorphic in BOTH the MN and ND populations
+ND_lines <- str_subset(row.names(s6_genos_mat3), "^ND")
+MN_lines <- setdiff(row.names(s6_genos_mat3), ND_lines)
+
+marker_poly_ND <- s6_genos_mat3 %>% 
+  subset(row.names(.) %in% ND_lines) %>%
+  apply(MARGIN = 2, FUN = n_distinct, na.rm = T) %>%
+  {. > 1}
+
+marker_poly_MN <- s6_genos_mat3 %>% 
+  subset(row.names(.) %in% MN_lines) %>%
+  apply(MARGIN = 2, FUN = n_distinct, na.rm = T) %>%
+  {. > 1}
+
+
+s6_genos_mat4 <- s6_genos_mat3[,marker_poly_MN & marker_poly_ND]
+
+# Trim the snp_info data.frame and remove unknown
+snp_info2 <- snp_info1 %>% 
+  filter(rs %in% colnames(s6_genos_mat4),
+         chrom != "UNK")
+
+# Remove the unknowns from the genotype matrix
+s6_genos_mat5 <- s6_genos_mat4[,snp_info2$rs]
+
+
+### Processing of the marker matrix for use in simulation
+# Remove redundant markers
+# These are characterized by having the same genotypes across all samples AND fall on the same cM position
+
+# Split the marker information by unique position
+unique_snp_list <- snp_info2 %>% 
+  split(list(.$chrom, .$cM_pos))
+
+# Remove NULL
+unique_snp_list <- unique_snp_list[sapply(unique_snp_list, nrow) != 0]
+
+# Apply a function to each group of unique SNPs
+non_redundant_marker_list <- lapply(unique_snp_list, FUN = function(uniq_info) {
+  
+  # If the number of markers is 1, just return the marker
+  if (nrow(uniq_info) == 1) {
+    return(uniq_info)
+    
+  } else { # Otherwise look more closely
+    
+    # Extract the marker names
+    marker.names <- uniq_info$rs
+
+    M.i <- s6_genos_mat5[,marker.names, drop = FALSE]
+    
+    # Determine if the genotype calls are the same between markers
+    same.genos <- identical.columns(input.matrix = M.i)
+    
+    # Choose the first index from each group
+    # Gather the names of the chosen markers
+    non.redundant.marker.names <- colnames(M.i)[sapply(X = same.genos, FUN = function(group) group[1])]
+    
+    # Extract marker info for those markers and return
+    snp_info2 %>%
+      filter(rs %in% non.redundant.marker.names)
+
+  } })
+    
+# Collapse the list
+snp_info3 <- bind_rows(non_redundant_marker_list) %>%
+  arrange(chrom, cM_pos)
+
+# Subset the genotype matrix again
+s6_genos_mat6 <- s6_genos_mat5[,snp_info3$rs]
+
+## Impute
+# Set hets to missing
+s6_genos_mat6[s6_genos_mat6 == 0] <- NA
+
+# Impute using mean
+s6_genos_imputed <- s6_genos_mat6 %>% 
+  apply(MARGIN = 2, FUN = function(snp) {
+    # Mean genotype
+    mean_geno <- mean(snp, na.rm = T)
+    # Round
+    mean_geno <- ifelse(mean_geno < 0, -1, 1)
+    snp[is.na(snp)] <- mean_geno
+    return(snp) })
+
+s6_cap_genos <- s6_genos_imputed + 1
+
+s6_snp_info <- snp_info3
+
+# Convert the genotypes to an array of haploid chromosomes
+s6_cap_haploid <- split(s6_cap_genos, 1:nrow(s6_cap_genos), drop = FALSE) %>%
+  lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+
+# Empty array
+s6_cap_haploid_array <- array(data = NA, dim = c(2, ncol(s6_cap_genos), length(s6_cap_haploid)),
+                              dimnames = list(NULL, colnames(s6_cap_genos), row.names(s6_cap_genos)))
+
+for (k in seq_along(s6_cap_haploid)) {
+  s6_cap_haploid_array[,,k] <- s6_cap_haploid[[k]]
+}
+
+
+# Rename
+s6_cap_haploid <- s6_cap_haploid_array
+
+
+### REMOVE THIS ###
+# devtools::use_data(s6_cap_genos, s6_snp_info, s6_cap_haploid, overwrite = T)
+
+
+```
+
+### Genetic Maps
+
+Using the filtered markers as above, extract their positions on the ma_map and the close_map
+
+
+```{r map.adj}
+
+# Replace the positions in the s2 and s6 snp info data.frames with those from the different genetic maps
+s2_snp_info <- s2_snp_info %>% 
+  select(-cM_pos) %>% 
+  left_join(., ma_map2, by = c("rs", "chrom")) %>%
+  filter(!is.na(cM_pos))
+
+s6_snp_info <- s6_snp_info %>% 
+  select(-cM_pos) %>% 
+  left_join(., ma_map2, by = c("rs", "chrom")) %>%
+  filter(!is.na(cM_pos))
+
+# Now assign them positions from the Close map
+s2_snp_info_close <- s2_snp_info %>% 
+  select(-cM_pos) %>% 
+  left_join(., close_map2, by = c("rs", "chrom")) %>%
+  filter(!is.na(cM_pos))
+
+s6_snp_info_close <- s6_snp_info %>% 
+  select(-cM_pos) %>% 
+  left_join(., close_map2, by = c("rs", "chrom")) %>%
+  filter(!is.na(cM_pos))
+
+
+# Refilter the marker data for those markers
+s2_cap_genos <- s2_cap_genos[,s2_snp_info1$rs]
+s2_cap_haploid <- s2_cap_haploid[,s2_snp_info1$rs,]
+
+
+
+s6_cap_genos <- s6_cap_genos[,s6_snp_info1$rs]
+s6_cap_haploid <- s6_cap_haploid[,s6_snp_info1$rs,]
+
+
+# Save all this data
+
+devtools::use_data(s2_snp_info, s2_snp_info_close, s2_cap_genos, s2_cap_haploid,
+                   s6_snp_info, s6_snp_info_close, s6_cap_genos, s6_cap_haploid, overwrite = T)
 
 
 ```

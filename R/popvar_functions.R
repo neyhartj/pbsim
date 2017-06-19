@@ -122,8 +122,9 @@ map_to_popvar <- function(genome) {
 #' 
 #' 
 #' @import dplyr
-#' @importFrom qtl sim.cross mf.h mf.k mf.m mf.cf
+#' @importFrom qtl sim.cross mf.h mf.k mf.m mf.cf map2table
 #' @importFrom purrr map pmap
+#' @importFrom tidyr spread
 #' 
 #' @export
 #' 
@@ -140,21 +141,30 @@ pop_predict_quick <- function(genome, map, training.pop, founder.pop, crossing.b
   # First predict marker effects
   mar_eff <- pred_mar_eff(genome = genome, training.pop = training.pop)$mar_eff
   
+  # Extract marker names
+  marker_names <- mar_eff$marker
+  
   # Predict genotypic values
   pgv <- pred_geno_val(genome = genome, training.pop = training.pop, candidate.pop = founder.pop,
                        method = "RRBLUP")
   
   # Convert the usable map to a df
-  map_df <- qtl::map2table(map) %>%
+  map_dat <- qtl::map2table(map) %>%
     data.frame(marker = row.names(.), ., stringsAsFactors = FALSE)
   
-  # Combine marker name, position, and effect
-  mar_specs <- full_join(x = map_df, mar_eff, by = "marker")
+  # Combine marker name, position, and effect, then sort on chromosome and position
+  mar_specs <- full_join(x = map_dat, mar_eff, by = "marker") %>%
+    arrange(chr, pos)
   # Add marker names to row.names
   row.names(mar_specs) <- mar_specs$marker
   
-  # Calculate the pairwise distance between markers
-  mar_specs_pair <- mar_specs %>%
+  # Calculate additive variance of all markers (assuming p = q = 0.5)
+  mar_var_base <- mar_specs %>% 
+    mutate(var_base = trait1 ^ 2) %>% 
+    select(marker, var_base)
+  
+  # Calculate the covariance between every marker pair
+  mar_covar_base <- mar_specs %>%
     split(.$chr) %>%
     map(function(mar_chr) {
       
@@ -167,79 +177,92 @@ pop_predict_quick <- function(genome, map, training.pop, founder.pop, crossing.b
       # Gather the marker effects and positions for those markers
       mar_pairs %>%
         mutate(mar1_eff = mar_chr[mar1, "trait1"], 
-               mar2_eff = mar_chr[mar2, "trait1"], 
+               mar2_eff = mar_chr[mar2, "trait1"],
+               mar_eff_prod = mar1_eff * mar2_eff,
                mar1_pos = mar_chr[mar1, "pos"], 
                mar2_pos = mar_chr[mar2, "pos"],
                d = abs(mar1_pos - mar2_pos),
                c = switch(map.function,
-                          haldane = mf.h(d),
-                          kosambi = mf.k(d),
-                          cf = mf.cf(d),
-                          morgan = mf.m(d)) ) %>%
-        select(mar1:mar2_eff, c) })
-
+                          haldane = qtl::mf.h(d),
+                          kosambi = qtl::mf.k(d),
+                          cf = qtl::mf.cf(d),
+                          morgan = qtl::mf.m(d)),
+               covar_base = mar_eff_prod * ((1 - (2 * c)) / (1 + (2 * c))) ) %>%
+        select(mar1, mar2, covar_base) }) %>%
+    bind_rows()
+  
+  # Convert the covariance df to a matrix
+  mar_covar_base_mat <- mar_covar_base %>% 
+    spread(mar2, covar_base) %>%
+    data.frame(., row.names = .$mar1) %>% 
+    select(-mar1) %>%
+    as.matrix() %>%
+    # Sort
+    .[intersect(marker_names, row.names(.)), intersect(marker_names, colnames(.))]
+  
+  # Get the genotypes of all individuals in the crossing block
+  all_parent <- crossing.block %>% 
+    unlist() %>% 
+    unique()
+  
+  # Remove the QTL
+  all_parent_geno <- subset_pop(pop = founder.pop, individual = all_parent)$geno %>%
+    do.call("cbind", .) %>%
+    {. - 1} %>%
+    subset(select = colnames(.) %in% mar_specs$marker)
   
   # Iterate over the parents in the crossing block
-  crossing.block %>%
+  predictions <- crossing.block %>%
     by_row(function(pars) {
       
-      # Extract parental genotypes and recode
-      parents <- subset_pop(pop = founder.pop, individual = pars)$geno %>%
-        lapply(function(geno) geno - 1)
+      # Extract parental genotypes
+      parents <- all_parent_geno[as.character(pars), , drop = FALSE]
       
-      # Iterate over the chromosomes of the parents and map
       # Which markers are segregating?
-      mar_seg <- list(map, parents) %>%
-        pmap(function(map_chr, geno_chr)
-          geno_chr[,names(map_chr)] %>% 
-            apply(MARGIN = 2, FUN = function(snp) n_distinct(snp) > 1) %>%
-            which() %>%
-            names() )
+      mar_seg <- names(which(colMeans(parents) == 0))
       
-      # Subset markers that are segregating and add the genotype of the first parent
-      mar_specs_pair_seg <- list(mar_specs_pair, parents, mar_seg) %>%
-        pmap(function(specs_chr, par_chr, seg_chr) {
-          specs_chr %>% 
-            filter(mar1 %in% seg_chr & mar2 %in% seg_chr) %>% 
-            mutate(mar1_par1 = par_chr[1,mar1], mar2_par1 = par_chr[1,mar2]) })
+      # Find the parent 1 genotype of those markers
+      par1_mar_seg <- parents[1,mar_seg, drop = FALSE]
       
+      # Subset the variance df for those markers
+      mar_var_seg <- mar_var_base %>% 
+        filter(marker %in% mar_seg)
       
+      # Subset the covariance and add the product of the parent 1 genotypes
+      mar_covar_seg <- mar_covar_base_mat %>%
+        .[row.names(.) %in% mar_seg, colnames(.) %in% mar_seg] %>%
+        {. * crossprod(par1_mar_seg)[row.names(.), colnames(.)]}
+        
+    
       # Calculate the variance of each segregating marker
-      mar_var <- mar_specs_pair_seg %>%
-        bind_rows() %>%
-        distinct(mar1, .keep_all = TRUE) %>%
-        mutate(var_a = (mar1_eff^2)) %>%
-        summarize(var_a = sum(var_a))
-      
+      mar_var <- sum(mar_var_seg$var_base)
+
       # Calculate the covariance between marker pairs
-      mar_covar <- mar_specs_pair_seg %>%
-        bind_rows() %>%
-        # Calculate covariance
-        mutate(frac = (1 - (2 * c)) / (1 + (2 * c)),
-               eff_prod = (mar1_eff * mar1_par1) * (mar2_eff * mar2_par1),
-               cov = frac * eff_prod ) %>%
-        summarize(covar = sum(cov))
-      
+      mar_covar <- sum(mar_covar_seg, na.rm = TRUE)
+
       # Calculate the mean PGV based on the markers
-      pred_mu <- pgv$pred_val %>% 
-        filter(ind %in% pars) %>% 
+      pred_mu <- pgv$pred_val %>%
+        filter(ind %in% pars) %>%
         summarize(mean_pgv = mean(trait1)) %>%
         as.numeric()
-      
+
       # Calculate genetic variance from the expected equation
-      pred_varG <- as.numeric(mar_var + (2 * mar_covar)) 
-      
+      pred_varG <- as.numeric(mar_var + (2 * mar_covar))
+
       # Calculate the mu_sp (high and low)
       # From Zhong and Jannink 2007
       pred_mu_sp_high <- pred_mu + (k.sp * pred_varG)
       pred_mu_sp_low <- pred_mu - (k.sp * pred_varG)
-      
+     
       # Return vector
       data.frame(pred_mu, pred_varG, pred_mu_sp_high, pred_mu_sp_low) }, .collate = "cols") %>%
-    
+
     # Rename
-    rename(pred_mu = pred_mu1, pred_varG = pred_varG1, pred_mu_sp_high = pred_mu_sp_high1, 
+    rename(pred_mu = pred_mu1, pred_varG = pred_varG1, pred_mu_sp_high = pred_mu_sp_high1,
            pred_mu_sp_low = pred_mu_sp_low1)
+  
+  # Return the predictions
+  return(predictions)
   
 } # Close the function
         
