@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_gen_model.R
 \name{sim_gen_model}
 \alias{sim_gen_model}
-\title{Define the genetic model of one or more traits}
+\title{Define the genetic model of a trait}
 \usage{
 sim_gen_model(genome, qtl.model, ...)
 }
@@ -14,10 +14,7 @@ a different QTL. The first column gives the chromosome number, the second
 column gives the locus position (in cM), the third column gives the additive effect of
 the favorable QTL allele (\code{a}) and the fourth column gives the dominance
 effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
-randomly assigned based on the number of rows in the matrix. If the genetic 
-architecture of multiple traits is desired, a list of length \code{n_trait}
-of \code{qtl.model} matrices can be provided. See \emph{Details} for more 
-information.}
+randomly assigned based on the number of rows in the matrix.}
 
 \item{...}{Other arguments. See \emph{Details} for more information.}
 }
@@ -108,6 +105,7 @@ prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
 genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
 
 # In this experiment, the maximum number of QTL for any trait is 20.
-genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, max.qtl = 20)
+genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, 
+                        max.qtl = 20)
  
 }

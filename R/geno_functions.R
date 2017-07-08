@@ -107,7 +107,7 @@ check_geno <- function(genome, geno) {
     }
     
     # Are the marker names consistent with the genome?
-    if (!all(markernames(genome) %in% markers)) {
+    if (!all(markernames(genome, include.qtl = TRUE) %in% markers)) {
       warning("The marker names in the genome are not consistent with those in the geno input.") 
       return(FALSE)
     }
