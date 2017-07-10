@@ -85,19 +85,6 @@
 #' qtl.model <- matrix(nrow = 15, ncol = 4)
 #' 
 #' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
-#' 
-#' # Randomly generate 15 QTL for each of two traits. 50% of the QTL are pleiotropic
-#' na_mat <- matrix(nrow = 15, ncol = 4)
-#' 
-#' qtl.model <- list(na_mat, na_mat)
-#' add.dist <- "geometric"
-#' prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
-#' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
-#' 
-#' # In this experiment, the maximum number of QTL for any trait is 20.
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, 
-#'                         max.qtl = 20)
 #'  
 #' @import dplyr
 #' 
@@ -118,31 +105,19 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     genome$gen_model <- NULL
   }
   
-  # Is the qtl.model a list? If not make it one
-  # Also determine the number of traits
-  if (!is.list(qtl.model)) {
-    qtl.model <- list(qtl.model)
-    n_trait <- 1
-    
-  } else {
-    n_trait <- length(qtl.model)
-    # Sort the QTL models based on decreasing number of QTL
-    n_qtl_per_trait <- sapply(X = qtl.model, FUN = nrow)
-    
-    qtl.model <- qtl.model[order(n_qtl_per_trait, decreasing = TRUE)]
-  }
+  
+  # The qtl.model should be a matrix, not a list
+  if (!is.matrix(qtl.model))
+    stop("The 'qtl.model' input must be a matrix. Note that multi-trait genetic models
+         are not accetpted by this function. Use the 'sim_multi_gen_model for multi-trait
+         genetic models.")
   
   # Make sure each qtl.model matrix has four columns
-  if (any(sapply(qtl.model, ncol) < 4))
+  if (ncol(qtl.model) < 4)
     stop("The matrix or matrices in 'qtl.model' must have at least 4 columns.")
   
   # The QTL model must be all NA or no NA
-  random_qtl <- sapply(qtl.model, function(mat) all(is.na(mat)))
-  
-  if (!sum(random_qtl) %in% c(0, length(random_qtl)))
-    stop("For one or more traits, the qtl.model must be either totally complete (i.e.
-         no NA) or totally missing (i.e. all NA).")
-
+  random_qtl <- all(is.na(qtl.model))
   
   # Extract other arguments
   other.args <- list(...)
@@ -154,10 +129,10 @@ sim_gen_model <- function(genome, qtl.model, ...) {
   chr_len <- chrlen(genome)
   
   # If any should be randomly generated, continue
-  if (any(random_qtl)) {
+  if (random_qtl) {
     
-    # Empty list to store information
-    qtl_specs <- vector("list", n_trait)
+    # Empty matrix to store information
+    qtl_specs <- vector("list")
     
     ## Error handling
     # Determine the additive effect distribution
@@ -177,42 +152,9 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     if (!is.null(dom.dist)) 
       if(dom.dist != "normal")
         stop("If the argument 'dom.dist' is provided, it must equal 'normal.'")
-    
-    # If there is more than one trait, extract the correlation probability vector
-    if (n_trait > 1) {
-      
-      prob.corr <- other.args$prob.corr
-    
-      # Error if null
-      if (is.null(prob.corr))
-        stop("If QTL for more than one trait are to be generated, the 'prob.corr'
-             argument must be passed.")
-      
-      # Make sure it has two columns
-      if (ncol(prob.corr) < 2)
-        stop("The 'prob.corr' input must have at least 2 columns.")
-      
-      # Are all probabilities between 0 and 1?
-      if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
-        stop("The probabilities in 'prob.corr' are not all between 0 and 1.")
-      
-      # Do the probabilities sum to 1
-      if (!sum(prob.corr[,2]) == 1)
-        stop("The probabilities in 'prob.corr' do not sum to 1.")
-      
-      # Are any of the levels of p greater than 50 or less than 0
-      if (!all(prob.corr[,1] >= 0 & prob.corr[,1] <= 50))
-        stop("The distances in 'prob.corr' must be between 0 and 50.")
-      
-      # Sort the matrix on order of p
-      prob.corr <- prob.corr[order(prob.corr[,1]),, drop = FALSE]
-      
-      
-    }
-    
-    
+  
     ## Simulate QTL for the first trait
-    n_qtl <- nrow(qtl.model[[1]])
+    n_qtl <- nrow(qtl.model)
     
     # Simulate additive effects
     if (add.dist == "normal") {
@@ -239,7 +181,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     max.qtl <- other.args$max.qtl
     
     if (is.null(max.qtl))
-      max.qtl <- max(sapply(X = qtl.model, nrow))
+      max.qtl <- nrow(qtl.model)
     
 
     
@@ -273,218 +215,27 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     qtl_specs[[1]] <- data.frame(chr = chr, pos = pos, add_eff = add.eff, dom_eff = dom.eff,
                                  qtl_name = qtl_marker_name, qtl1_pair = NA, 
                                  stringsAsFactors = FALSE)
-  
-    
-    
-    ## Iterate over the remaining traits if more than 1
-    if (n_trait > 1)
-      for (t in seq(2, n_trait)) {
-        
-        # Number of QTL
-        n_qtl <- nrow(qtl.model[[t]])
-        
-        # Simulate additive effects
-        if (add.dist == "normal") { 
-          add.eff <- rnorm(n_qtl)
-          
-        } else if (add.dist == "geometric") {
-          a <- (1 - n_qtl) / (1 + n_qtl)
-          add.eff <- sample(abs( a ^ (seq(n_qtl)) ))
-          # Randomly assign favorable or unfavorable for the first allele
-          add.eff <- add.eff * sample(x = c(-1, 1), size = n_qtl, replace = TRUE)
-        
-        }
-        
-        # Simulate dominance effect 
-        if (is.null(dom.dist)) {
-          dom.eff <- rep(0, n_qtl)
-        } else {
-          dom.eff <- rnorm(n_qtl)
-        }
-        
-        # Set the new length of add.eff and dom.eff
-        length(add.eff) <- max.qtl
-        length(dom.eff) <- max.qtl
-          
-        # If the length of prob.corr is 1, output a vector of that prob.corr
-        if (nrow(prob.corr) == 1) {
-          qtl_designator <- rep(x = prob.corr[,1], times = n_qtl)
-        
-        } else {
-          # Randomly designated each QTL to share some correlation with QTL of the
-          # first trait
-          qtl_designator <- sample(prob.corr[,1], size = n_qtl, 
-                                   prob = prob.corr[,2], replace = TRUE)
-        }
-        
-        # Pull out the correlation levels
-        corr_level <- prob.corr[,1, drop = TRUE]
-        
-        # Create an empty data.frame
-        qtl_specs[[t]] <- as.data.frame(
-          matrix(data = NA, nrow = max.qtl, ncol = 6, 
-                 dimnames = list(NULL, names(qtl_specs[[1]])))
-        )
-        
-        ## Create a vector of row numbers from which to draw QTL from trait 1
-        ## These must be "real" QTL (i.e. add_eff > 0)
-        qtl1_row_vec <- which(qtl_specs[[1]]$add_eff != 0)
-        
-        # Extract the qtl1 names
-        qtl1_names <- qtl_specs[[1]]$qtl_name
-
-        
-        ## Iterate over the correlation levels
-        for (p in corr_level) {
-          
-          # If prob is 0, simulate pleiotropy by drawing chr and pos from the first trait
-          if (p == 0) {
-            
-            qtl_one_sample <- sample(qtl1_row_vec, size = sum(qtl_designator == p))
-            
-            # Subset chromosomes and positions for these first QTL
-            qtl_specs[[t]][which(qtl_designator == p), ] <- 
-              qtl_specs[[1]][qtl_one_sample, ]
-            qtl_specs[[t]]$qtl1_pair[which(qtl_designator == p)] <- 
-              qtl_specs[[1]]$qtl_name[qtl_one_sample]
-            
-            # Replace the qtl1_row_vec with the the index of non-sampled qtl
-            qtl1_row_vec <- setdiff(qtl1_row_vec, qtl_one_sample)
-            
-            # Sample QTL for linkage
-          } else if (p > 0 & p < 50) {
-            
-            # Sample QTL from trait 1
-            qtl_one_sample <- sample(qtl1_row_vec, size = sum(qtl_designator == p))
-            
-            # If the length of the sample is 0, skip
-            if (length(qtl_one_sample) == 0)
-              next
-            
-            # Get those QTL positions
-            qtl_one_pos <- qtl_specs[[1]][qtl_one_sample, , drop = FALSE]
-            
-            # What is the previous level of p? If it is the first, set the minimum 
-            # distance to 0.000001
-            prev_p <- match(p, prob.corr[,1]) - 1
-            min_dist <- ifelse(prev_p == 0, 1e-6, corr_level[prev_p])
-            
-            # If min_dist is 0, set to 1e-6
-            min_dist <- ifelse(min_dist == 0, 1e-6, min_dist)
-            
-            # Max dist is equal to p
-            max_dist <- p
-            
-
-            # Sample from markers in the range
-            prox_mar <- find_proxmarkers(genome = genome, marker = qtl_one_pos$qtl_name,
-                                         min.dist = min_dist, max.dist = max_dist)
-            
-            # Remove duplicates
-            prox_mar_unique <- unlist(prox_mar, use.names = FALSE) %>% 
-              structure(names = rep(names(prox_mar), sapply(prox_mar, length))) %>% 
-              .[!duplicated(.)] %>% 
-              split(., names(.))
-            
-            # Remove those that are from the first trait
-            prox_mar_unique1 <- lapply(prox_mar_unique, setdiff, qtl1_names)
-            
-            
-            # For each of those markers, sample the proximal markers
-            prox_mar_sample <- sapply(X = prox_mar_unique1, FUN = function(px)
-              ifelse(length(px) == 0, NA, sample(px, 1)))
-            
-            
-            # Create an empty data.frame
-            marker_sample_pos <- as.data.frame(
-              matrix(data = NA, nrow = length(prox_mar_sample), ncol = 3, 
-                     dimnames = list(NULL, c("chr", "pos", "marker"))))
-            
-            # Get the positions of those markers
-            marker_sample_pos[!is.na(prox_mar_sample),] <- 
-              find_markerpos(genome = genome, marker = na.omit(prox_mar_sample)) %>%
-              mutate(marker = row.names(.))
-
-            
-            # Assign this info to the qtl_specs df for trait t
-            qtl_specs[[t]][which(qtl_designator == p), c("chr", "pos", "qtl_name")] <- 
-              marker_sample_pos
-            
-            # Extract the QTL names that are paired
-            qtl_specs[[t]][which(qtl_designator == p), "qtl1_pair"] <- 
-              qtl_specs[[1]]$qtl_name[qtl_one_sample]
-            
-            # Replace the qtl1_row_vec with the the index of non-sampled qtl
-            qtl1_row_vec <- setdiff(qtl1_row_vec, qtl_one_sample)
-            
-
-            # If p is 50, randomly draw positions and chromosomes, regardless of the first trait
-          } else if (p == 50) {
-            
-
-            # Randomly draw markers to be QTL, excluding those already designated as QTL
-            avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
-                                     unlist(lapply(qtl_specs, "[[", "qtl_name")))
-            
-            marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
-
-            # Get the positions of those markers
-            marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-              mutate(marker = row.names(.))
-            
-            # Assign this info to the qtl_specs df for trait t
-            qtl_specs[[t]][which(qtl_designator == p), c("chr", "pos", "qtl_name")] <- 
-              marker_sample_pos
-            
-            
-          } # Close the p object if statements
-          
-      } # Close the loop per cor level
-        
-        # Re-add the additive and dominance effects
-        qtl_specs[[t]]$add_eff <- ifelse(is.na(add.eff), 0, add.eff)
-        qtl_specs[[t]]$dom_eff <- ifelse(is.na(dom.eff), 0, dom.eff)
-        
-        ## Fill in markers that are NA
-        # Randomly draw markers to be QTL, excluding those already designated as QTL
-        avail_markers <- setdiff(markernames(genome, include.qtl = TRUE), 
-                                 unlist(lapply(qtl_specs, "[[", "qtl_name")))
-        
-        marker_sample <- sample(x = avail_markers, size = sum(is.na(qtl_specs[[t]]$qtl_name)))
-        
-        # Get the positions of those markers
-        marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-          mutate(marker = row.names(.))
-        
-        # Assign this info to the qtl_specs df for trait t
-        qtl_specs[[t]][which(is.na(qtl_specs[[t]]$qtl_name)), c("chr", "pos", "qtl_name")] <- 
-          marker_sample_pos
-
-      } # Close the loop
     
   } else {
     # Else verify that the provided qtl.model matrices are sufficient
+
+    # The qtl model must not have any NAs
+    if (any(is.na(qtl.model)))
+      stop("Unless the 'qtl.model' is completely NA, there can be no NA elements.")
     
-    for (mat in qtl.model) {
-      
-      # The qtl model must not have any NAs
-      if (any(is.na(mat)))
-        stop("Unless the 'qtl.model' is completely NA, there can be no NA elements.")
-      
-      if (!all(mat[,1] %in% seq(n_chr)))
-        stop("The chromosome numbers in 'qtl.model' are not chromosomes in the 
-             genome.")
-      
-      # Are the marker positions correct?
-      qtl.pos <- split(mat[,2], mat[,1])
-      
-      if (!all(mapply(qtl.pos, genome$len, FUN = function(q, n) q <= n)))
-        stop("The QTL positions in 'qtl.model' are not within the length of the 
-             chromosomes.")
-    }
+    if (!all(qtl.model[,1] %in% seq(n_chr)))
+      stop("The chromosome numbers in 'qtl.model' are not chromosomes in the 
+           genome.")
+    
+    # Are the marker positions correct?
+    qtl.pos <- split(qtl.model[,2], qtl.model[,1])
+    
+    if (!all(mapply(qtl.pos, genome$len, FUN = function(q, n) q <= n)))
+      stop("The QTL positions in 'qtl.model' are not within the length of the 
+           chromosomes.")
     
     # Rename to qtl.specs - and convert to df
-    qtl_specs <- lapply(qtl.model, as.data.frame) %>% 
+    qtl_specs <- list(as.data.frame(qtl.model)) %>% 
       lapply(structure, names = c("chr", "pos", "add_eff", "dom_eff"))
     
   }
@@ -618,9 +369,6 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, 
 #'                               geno = s2_cap_haploid, prob.corr = prob.corr,
 #'                               pos.corr = TRUE, add.dist = "geometric", max.qtl = 30)
-#' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15, 
-#' prob.corr = prob.corr)
 #' 
 #' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
 #' 
@@ -961,10 +709,10 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr = T
               # If not, return NA
               prox_mar_sample[j] <- NA
               
+            }
+              
               # Remove that marker from sampling in the future
               prox_mar_unique <- sapply(prox_mar_unique, setdiff, prox_mar_sample[j])
-              
-            }
             
           }
           
@@ -1010,7 +758,7 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr = T
             marker_sample_pos
           
           
-        } # Close the p object if statements
+        } # Close the p object if statements 
         
       } # Close the loop per cor level
       

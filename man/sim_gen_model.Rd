@@ -94,18 +94,5 @@ genome <- sim_gen_model(genome, qtl.model)
 qtl.model <- matrix(nrow = 15, ncol = 4)
 
 genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
-
-# Randomly generate 15 QTL for each of two traits. 50\% of the QTL are pleiotropic
-na_mat <- matrix(nrow = 15, ncol = 4)
-
-qtl.model <- list(na_mat, na_mat)
-add.dist <- "geometric"
-prob.corr <- cbind(c(0, 2, 15, 30, 50), c(0.5, 0.1, 0.1, 0.1, 0.2))
-
-genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr)
-
-# In this experiment, the maximum number of QTL for any trait is 20.
-genome <- sim_gen_model(genome, qtl.model, add.dist = add.dist, prob.corr = prob.corr, 
-                        max.qtl = 20)
  
 }

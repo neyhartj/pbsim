@@ -100,9 +100,6 @@ genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model,
                               geno = s2_cap_haploid, prob.corr = prob.corr,
                               pos.corr = TRUE, add.dist = "geometric", max.qtl = 30)
 
-genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15, 
-prob.corr = prob.corr)
-
 pop <- create_pop(genome = genome, geno = s2_cap_haploid)
 
 # Genetic correlation prior to adjustment
