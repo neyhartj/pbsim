@@ -4,7 +4,7 @@
 \alias{sim_multi_gen_model}
 \title{Define a genetic model for two or more traits}
 \usage{
-sim_multi_gen_model(genome, qtl.model, geno, prob.corr, pos.corr = TRUE, ...)
+sim_multi_gen_model(genome, qtl.model, geno, prob.corr, pos.corr, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -33,7 +33,8 @@ between QTL of one trait and QTL of another. Pleiotropic QTL can be simulated
 by providing a 0 in the first column, and no genetic linkage is simulated if 
 50 is in the first column.}
 
-\item{pos.cor}{A logical indicating whether the two traits should be positively correlated.}
+\item{pos.cor}{A logical indicating whether the two traits should be positively correlated.
+If not passed, the correlation is not forced to be positive or negative.}
 }
 \description{
 Generates a genetic model for two or more traits with desired genetic correlation.

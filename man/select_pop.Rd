@@ -4,8 +4,8 @@
 \alias{select_pop}
 \title{Make selections from a population}
 \usage{
-select_pop(pop, intensity = 0.1, type = c("phenotypic", "genomic",
-  "random"), tail = c("upper", "lower"))
+select_pop(pop, intensity = 0.1, index, type = c("phenotypic", "genomic",
+  "random"))
 }
 \arguments{
 \item{pop}{An object of class \code{pop}.}
@@ -13,14 +13,15 @@ select_pop(pop, intensity = 0.1, type = c("phenotypic", "genomic",
 \item{intensity}{Either the prortion of individual in the population to select
 or the number of individuals in the population to select.}
 
+\item{index}{The coefficients for the selection index. Positive coefficients 
+equate to selection on higher trait values, and negative coefficients equate 
+to selection on lower trait value. Must be a vector if length \code{n_trait}.
+If one trait is present, the coefficient is 1 or -1.}
+
 \item{type}{The type of selection to perform. If \code{"phenotypic"}, individuals
 in the population are selected based on phenotypic values, if \code{"genomic"}, 
 individuals in the population are selected based on predicted genotypic values,
 and if \code{"random"}, individuals in the population are selected randomly.}
-
-\item{tail}{The direction in which to select. If \code{"upper"}, the individuals
-with the highest values are selected, and if \code{"lower"}, the individuals with
-the lowest values are selected.}
 }
 \value{
 An object of class \code{pop} that is a subset of the input \code{pop} for
@@ -30,7 +31,12 @@ the selections.
 Make selections from a population
 }
 \details{
-If multiple traits are present, "trait1" is used for selection.
+If one trait is present, selection is performed on that one trait.
+
+If two traits are present, an index is calculated using the index.
+
+If there is a tie in the phenotypic or predicted genotypic values, individuals
+are randomly chosen.
 }
 \examples{
 
@@ -53,6 +59,6 @@ genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
 pop <- create_pop(genome = genome, geno = s2_cap_genos)
 pop <- sim_phenoval(pop, h2 = 0.5)
 
-pop_selected <- select_pop(pop = pop, intensity = 50)
+pop_selected <- select_pop(pop = pop, intensity = 50, index = 1)
 
 }

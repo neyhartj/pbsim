@@ -263,16 +263,22 @@ combine_pop <- function(pop_list) {
 #' @param pop An object of class \code{pop}.
 #' @param intensity Either the prortion of individual in the population to select
 #' or the number of individuals in the population to select.
+#' @param index The coefficients for the selection index. Positive coefficients 
+#' equate to selection on higher trait values, and negative coefficients equate 
+#' to selection on lower trait value. Must be a vector if length \code{n_trait}.
+#' If one trait is present, the coefficient is 1 or -1.
 #' @param type The type of selection to perform. If \code{"phenotypic"}, individuals
 #' in the population are selected based on phenotypic values, if \code{"genomic"}, 
 #' individuals in the population are selected based on predicted genotypic values,
 #' and if \code{"random"}, individuals in the population are selected randomly.
-#' @param tail The direction in which to select. If \code{"upper"}, the individuals
-#' with the highest values are selected, and if \code{"lower"}, the individuals with
-#' the lowest values are selected.
 #' 
 #' @details 
-#' If multiple traits are present, "trait1" is used for selection.
+#' If one trait is present, selection is performed on that one trait.
+#' 
+#' If two traits are present, an index is calculated using the index.
+#' 
+#' If there is a tie in the phenotypic or predicted genotypic values, individuals
+#' are randomly chosen.
 #' 
 #' @return 
 #' An object of class \code{pop} that is a subset of the input \code{pop} for
@@ -299,14 +305,13 @@ combine_pop <- function(pop_list) {
 #' pop <- create_pop(genome = genome, geno = s2_cap_genos)
 #' pop <- sim_phenoval(pop, h2 = 0.5)
 #' 
-#' pop_selected <- select_pop(pop = pop, intensity = 50)
+#' pop_selected <- select_pop(pop = pop, intensity = 50, index = 1)
 #' 
 #' @import dplyr
 #' 
 #' @export 
 #' 
-select_pop <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "random"),
-                      tail = c("upper", "lower")) {
+select_pop <- function(pop, intensity = 0.1, index, type = c("phenotypic", "genomic", "random")) {
   
   # Error handling
   # Make sure pop inherits the class "pop"
@@ -315,8 +320,7 @@ select_pop <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "
   
   # Match arguments
   type <- match.arg(type)
-  tail <- match.arg(tail)
-  
+
   # Number in the pheno.vec
   n_ind <- nind(pop)
   
@@ -328,8 +332,16 @@ select_pop <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "
     intensity_n <- intensity
   }
   
-  # If direction is "worst", make intensity_n negative
-  intensity_n <- ifelse(tail == "low", intensity_n * -1, intensity_n)
+  # How many traits
+  n_trait <- ncol(pop$geno_val) - 1
+  
+  # Make sure that type is of appropriate length
+  if (length(index) != n_trait)
+    stop("The number of elements in the input 'type' must be the same as the
+         number of trait.")
+  
+  # Rescale the index
+  index <- scale(index, scale = abs(sum(index)), center = FALSE)
   
   # If phenotypic selection
   if (type == "phenotypic") {
@@ -338,25 +350,86 @@ select_pop <- function(pop, intensity = 0.1, type = c("phenotypic", "genomic", "
     if (is.null(pop$pheno_val))
       stop("Phenotypic selection cannot proceed within phenotypes in the population.")
     
-    # Select on the means
-    selected <- pop$pheno_val$pheno_mean %>% 
-      top_n(n = intensity_n, wt = trait1)
+    # Recode the value
+    selected <- pop$pheno_val$pheno_mean
+    selected[,-1] <- selected[,-1, drop = FALSE] * matrix(index, nrow = n_ind, ncol = n_trait, byrow = T)
+    
+    # Calculate an index and take the top n
+    selected <- selected %>% 
+      mutate(index = rowSums(select(., -1))) %>% 
+      top_n(n = intensity_n, wt = index)
+    
+    # Is the df greater than the number of intended selections?
+    if (nrow(selected) > intensity_n) {
+      
+      # Separate those selections with the greatest value
+      top_selected <- selected %>% 
+        filter(index != min(index))
+      
+      # How many?
+      n_top <- nrow(top_selected)
+      
+      # Separate those selections with the lowest value
+      bot_selected <- selected %>%
+        filter(index == min(index))
+      
+      # Sample among the bottom randomly to bring the number of selections up to
+      # the intended number
+      bot_selected_sample <- bot_selected %>% 
+        sample_n(size = intensity_n - n_top)
+      
+      # Bind rows and sort
+      selected <- bind_rows(top_selected, bot_selected_sample) %>% 
+        arrange(ind)
+      
+    }
     
   } else if (type == "genomic") {
     
     # Check for PGVs
     if (is.null(pop$pred_val))
       stop("Genomic selection cannot proceed within predicted genotypic values in the population.")
-  
-    # Check for predicted values
-    selected <- pop$pred_val %>% 
-      top_n(n = intensity_n, wt = trait1)
+      
+    # Recode the value
+    selected <- pop$pred_val
+    selected[,-1] <- selected[,-1, drop = FALSE] * matrix(index, nrow = n_ind, ncol = n_trait, byrow = T)
+    
+    # Calculate an index, select the top_n, then sort on the index
+    selected <- selected %>% 
+      mutate(index = rowSums(select(., -1))) %>% 
+      top_n(n = intensity_n, wt = index) %>%
+      arrange(desc(index))
+    
+    # Is the df greater than the number of intended selections?
+    if (nrow(selected) > intensity_n) {
+      
+      # Separate those selections with the greatest value
+      top_selected <- selected %>% 
+        filter(index != min(index))
+      
+      # How many?
+      n_top <- nrow(top_selected)
+      
+      # Separate those selections with the lowest value
+      bot_selected <- selected %>%
+        filter(index == min(index))
+      
+      # Sample among the bottom randomly to bring the number of selections up to
+      # the intended number
+      bot_selected_sample <- bot_selected %>% 
+        sample_n(size = intensity_n - n_top)
+      
+      # Bind rows and sort
+      selected <- bind_rows(top_selected, bot_selected_sample) %>% 
+        arrange(ind)
+      
+    }
     
   } else if (type == "random") {
     
     # Random selections
     selected <- pop$geno_val %>% 
-      sample_n(size = abs(intensity_n))
+      sample_n(size = intensity_n)
     
   }
   

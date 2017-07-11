@@ -272,6 +272,10 @@ pull_genotype <- function(genome, geno, loci) {
   if (is.list(geno))
     geno <- do.call("cbind", geno)
   
+  # If haploid, convert to geno
+  if (is_haploid(geno))
+    geno <- haploid_to_geno(geno = geno)
+  
   # Make sure the loci are in the marker names
   marker_names <- markernames(genome, include.qtl = TRUE)
   

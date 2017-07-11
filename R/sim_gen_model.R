@@ -37,13 +37,6 @@
 #'   \item{\code{dom.dist}}{The distribution of dominance effects of QTL (if dominance
 #'   effects are not provided in the \code{qtl.model} input). Can be 
 #'   \code{"normal"} for normally-distributed dominance effects.}
-#'   \item{\code{prob.corr}}{A matrix of two columns defining the probabilities
-#'   that QTL for two or more traits are in some form that might confer genetic 
-#'   correlation. The first column sets the maximum distance between a QTL from 
-#'   a second trait and a QTL from the first trait, and the second column is the
-#'   probability that QTL from a second trait have that maximum distance. Pleiotropic
-#'   QTL can be simulated by providing a 0 in the first column, and no genetic 
-#'   linkage is simulated if 50 is in the first column.}
 #'   \item{\code{max.qtl}}{The maximum number of QTL in the simulation experiment. Must
 #'   be passed if the QTL are randomly sampled. If a trait is controlled by \emph{L} QTL
 #'   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
@@ -56,10 +49,6 @@
 #' \itemize{
 #'   \item{QTL positions are randomly drawn, with no regard to uniformity
 #'   over chromosomes.}
-#'   \item{The genetic architecture of multiple traits can be simulated by providing
-#'   a list of \code{qtl.model} matrices. The length of this list will be the number
-#'   of traits. The same rules apply for each \code{qtl.model} matrix. Pleitropy 
-#'   can be simulated by designating QTL at the same location in the genome.}
 #' }
 #' 
 #' @return 
@@ -307,6 +296,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' by providing a 0 in the first column, and no genetic linkage is simulated if 
 #' 50 is in the first column.
 #' @param pos.cor A logical indicating whether the two traits should be positively correlated.
+#' If not passed, the correlation is not forced to be positive or negative.
 #' 
 #' @details
 #' QTL are simulated by sampling or specifying existing markers, which become "hidden."
@@ -389,7 +379,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' 
 #' @export
 #' 
-sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr = TRUE, ...) {
+sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ...) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -436,6 +426,16 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr = T
   # If the geno input is haploid data, convert to geno
   if (is_haploid(geno))
     geno <- haploid_to_geno(geno)
+  
+  
+  # pos.corr must be logicial, if present. If not, set to NULL
+  if (missing(pos.corr) | is.null(pos.corr)) {
+    pos.corr <- NULL
+    
+  } else {
+    pos.corr <- as.logical(pos.corr)
+    
+  }
   
   
   ## Error handling of prob.corr
@@ -785,70 +785,78 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr = T
       qtlmod_t <- qtl_specs[[t]]
       
       
-      ## Adjust the effects of QTL for trait 2 + to achieve the desired correlation
-      # A new vector of additive effects
-      adj_add_eff <- vector("numeric", nrow(qtlmod_t))
       
-      # Iterate over qtl
-      for (i in seq(nrow(qtlmod_t))) {
+      # If poss.corr is not NULL, adjust the effects to reflect that correlation
+      # If not, do nothing
+      if (!is.null(pos.corr)) {
+      
+      
+        ## Adjust the effects of QTL for trait 2 + to achieve the desired correlation
+        # A new vector of additive effects
+        adj_add_eff <- vector("numeric", nrow(qtlmod_t))
         
-        q <- qtlmod_t[i,]
-        
-        # If the qtl1_pair is NA, skip
-        if (is.na(q$qtl1_pair)) {
-          adj_add_eff[i] <- q$add_eff
+        # Iterate over qtl
+        for (i in seq(nrow(qtlmod_t))) {
           
-        } else {
+          q <- qtlmod_t[i,]
           
-          # If the qtl_t name is the same as the qtl1 pair, the cor sign is 1
-          if (q$qtl_name == q$qtl1_pair) {
-            cor_sign <- 1
+          # If the qtl1_pair is NA, skip
+          if (is.na(q$qtl1_pair)) {
+            adj_add_eff[i] <- q$add_eff
             
           } else {
-            # Pull out the genotypic data for that QTL and the QTL1 pair
-            geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(q$qtl_name, q$qtl1_pair))
             
-            # What is the sign of the correlation?
-            # If the sign is NA, set to 1
-            cor_sign <- suppressWarnings(sign(cor(geno_q)[-1,1]))
-            cor_sign <- ifelse(is.na(cor_sign), 1, cor_sign)
-            
-          }
-          
-          # What is the sign of the qtl_t add_eff?
-          qtl_t_sign <- sign(q$add_eff)
-          # What is the sign of the qtl1 pair?
-          qtl1_sign <- sign(subset(qtl_specs[[1]], qtl_name == q$qtl1_pair, 
-                                   add_eff, drop = TRUE))
-          
-          # If the intended correlation is positive...
-          if (pos.corr) {
-            # If the geno corr sign is positive, the add_eff for qtl_t should be the same
-            # sign as that for qtl1
-            if (cor_sign == 1) {
-              adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
-            } else{
-              adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
+            # If the qtl_t name is the same as the qtl1 pair, the cor sign is 1
+            if (q$qtl_name == q$qtl1_pair) {
+              cor_sign <- 1
+              
+            } else {
+              # Pull out the genotypic data for that QTL and the QTL1 pair
+              geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(q$qtl_name, q$qtl1_pair))
+              
+              # What is the sign of the correlation?
+              # If the sign is NA, set to 1
+              cor_sign <- suppressWarnings(sign(cor(geno_q)[-1,1]))
+              cor_sign <- ifelse(is.na(cor_sign), 1, cor_sign)
+              
             }
             
-            # If the intended correlation is negative...
-          } else {
-            # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite
-            # sign as that for qtl1
-            if (cor_sign == 1) {
-              adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
-            } else{
-              adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
+            # What is the sign of the qtl_t add_eff?
+            qtl_t_sign <- sign(q$add_eff)
+            # What is the sign of the qtl1 pair?
+            qtl1_sign <- sign(subset(qtl_specs[[1]], qtl_name == q$qtl1_pair, 
+                                     add_eff, drop = TRUE))
+            
+            # If the intended correlation is positive...
+            if (pos.corr) {
+              # If the geno corr sign is positive, the add_eff for qtl_t should be the same
+              # sign as that for qtl1
+              if (cor_sign == 1) {
+                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
+              } else{
+                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
+              }
+              
+              # If the intended correlation is negative...
+            } else {
+              # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite
+              # sign as that for qtl1
+              if (cor_sign == 1) {
+                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
+              } else{
+                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
+              }
+              
             }
             
-          }
-          
-        }} # Close the loop
-      
-      # Edit the t-th model
-      qtl_specs[[t]] <- qtlmod_t %>%
-        mutate(chr = factor(chr, levels = chrnames(genome)),
-               add_eff = adj_add_eff)
+          }} # Close the loop
+        
+        # Edit the t-th model
+        qtl_specs[[t]] <- qtlmod_t %>%
+          mutate(chr = factor(chr, levels = chrnames(genome)),
+                 add_eff = adj_add_eff)
+        
+      } # Close the pos.corr if statement
       
     } # Close the loop
     

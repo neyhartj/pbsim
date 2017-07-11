@@ -49,13 +49,6 @@ Other arguments include:
   \item{\code{dom.dist}}{The distribution of dominance effects of QTL (if dominance
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} for normally-distributed dominance effects.}
-  \item{\code{prob.corr}}{A matrix of two columns defining the probabilities
-  that QTL for two or more traits are in some form that might confer genetic 
-  correlation. The first column sets the maximum distance between a QTL from 
-  a second trait and a QTL from the first trait, and the second column is the
-  probability that QTL from a second trait have that maximum distance. Pleiotropic
-  QTL can be simulated by providing a 0 in the first column, and no genetic 
-  linkage is simulated if 50 is in the first column.}
   \item{\code{max.qtl}}{The maximum number of QTL in the simulation experiment. Must
   be passed if the QTL are randomly sampled. If a trait is controlled by \emph{L} QTL
   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
@@ -68,10 +61,6 @@ completely NA:
 \itemize{
   \item{QTL positions are randomly drawn, with no regard to uniformity
   over chromosomes.}
-  \item{The genetic architecture of multiple traits can be simulated by providing
-  a list of \code{qtl.model} matrices. The length of this list will be the number
-  of traits. The same rules apply for each \code{qtl.model} matrix. Pleitropy 
-  can be simulated by designating QTL at the same location in the genome.}
 }
 }
 \examples{

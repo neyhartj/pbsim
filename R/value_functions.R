@@ -219,7 +219,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
   # Tidy the phenotypes
   p_df <- mapply(names(p), p, FUN = function(tr, ph)
-    data.frame(ind = row.names(ph), trait = tr, ph), SIMPLIFY = FALSE) %>%
+    data.frame(ind = row.names(ph), trait = tr, ph, stringsAsFactors = FALSE), SIMPLIFY = FALSE) %>%
     bind_rows()
   
   # Further tidying the phenotypes
