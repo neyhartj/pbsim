@@ -274,29 +274,18 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' Generates a genetic model for two or more traits with desired genetic correlation.
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param qtl.model  A matrix specifying the QTL model. Each row corresponds to
-#' a different QTL. The first column gives the chromosome number, the second 
-#' column gives the locus position (in cM), the third column gives the additive effect of
-#' the favorable QTL allele (\code{a}) and the fourth column gives the dominance
-#' effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
-#' randomly assigned based on the number of rows in the matrix. If the genetic 
-#' architecture of multiple traits is desired, a list of length \code{n_trait}
-#' of \code{qtl.model} matrices can be provided. See \emph{Details} for more 
-#' information.
-#' @param geno Genotype data on a population to phenotype. Can be a matrix of dimensions
-#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-#' of such matrices.
-#' @param prob.corr A matrix of three columns defining the probabilities
-#' that QTL for two or more traits are in some form that might confer genetic 
-#' correlation. The first column sets the maximum distance between a QTL from 
-#' a second trait and a QTL from the first trait, the second column is the
-#' probability that QTL from a second trait have that maximum distance, and the 
-#' third column specifies the minimum correlation (i.e. linkage disequilibrium) 
-#' between QTL of one trait and QTL of another. Pleiotropic QTL can be simulated 
-#' by providing a 0 in the first column, and no genetic linkage is simulated if 
-#' 50 is in the first column.
-#' @param pos.cor A logical indicating whether the two traits should be positively correlated.
-#' If not passed, the correlation is not forced to be positive or negative.
+#' @param qtl.model  A matrix specifying the QTL model. See \code{\link{pbsim}[sim_gen_model]}.
+#' If the qtl.model matrices are NA, the two traits must have the same number of QTL.
+#' @param corr The desired genetic correlation if QTL are to be drawn randomly.
+#' May be positive or negative. See \code{Details} regarding the multivariate 
+#' random sampling of additive effects.
+#' @param prob.corr A matrix of two columns defining the probabilities that pairs 
+#' of QTL for two or more traits are at most \code{x} cM apart. The first column 
+#' sets the maximum distance between a QTL from  a second trait and a QTL from the 
+#' first trait, and the second column is the probability that QTL from a second 
+#' trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
+#' a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
+#' first column.
 #' 
 #' @details
 #' QTL are simulated by sampling or specifying existing markers, which become "hidden."
@@ -310,23 +299,21 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' \code{qtl.model} can be negative. The fourth column is the dominance effect at the 
 #' QTL. If non-zero, this value can be larger that \code{a} or smaller than \code{-a} 
 #' (overdominance). The genotypic value of heterozygotes at the QTL is \code{d}.
-#'  
-#' Although QTL for two traits can be linked, depending on the population, they
-#' may not be highly correlated. If a correlation between two traits is desired,
-#' this function will first resample markers to become QTL based on the desired
-#' linkaged and correlations between the genotypes at those QTL. Next, the function
-#' will edit the additive effects in all but the first trait to 
-#' induce the desired correlation between traits.
 #' 
 #' Other arguments include:
 #' \describe{
 #'   \item{\code{add.dist}}{The distribution of additive effects of QTL (if additive 
 #'   effects are not provided in the \code{qtl.model} input). Can be 
 #'   \code{"normal"} or \code{"geometric"}. For a distribution of \code{"normal"}, 
-#'   additive effects are generated via the \code{\link[stats]{rnorm}} function.
-#'   For a distribution of \code{"geometric"}, additive effects are calculated for
-#'   the k-th QTL as \eqn{a^k} where \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is 
-#'   the number of QTL (Lande and Thompson, 1990).}
+#'   additive effects are generated via a multivariate normal distribution using
+#'   the \code{\link[mvtnorm]{rmvnorm}} function and with variance-covariance matrix
+#'   \code{Sigma = rbind(c(1, corr), c(corr, 1))}. For a distribution of \code{"geometric"}, 
+#'   additive effects are calculated for the k-th QTL as \eqn{a^k} where 
+#'   \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is the number of QTL (Lande and Thompson, 1990).}.
+#'   the same variance-covariance matrix above is then used to adjust the additive
+#'   effects to achieve the desired correlation. This approach assumes that pairs
+#'   of QTL are in coupling phase linkage, therefore the desired correlation will
+#'   be different than the observed correlation depending on the population.
 #'   \item{\code{dom.dist}}{The distribution of dominance effects of QTL (if dominance
 #'   effects are not provided in the \code{qtl.model} input). Can be 
 #'   \code{"normal"} for normally-distributed dominance effects.}
@@ -365,21 +352,12 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' # Genetic correlation prior to adjustment
 #' cor(pop$geno_val$trait1, pop$geno_val$trait2)
 #' 
-#' # Adjust the genome
-#' prob.corr <- cbind(2, 1, 0.3)
-#' genome <- adj_gen_model(genome = genome, geno = s2_cap_haploid, prob.corr = prob.corr, 
-#' pos.corr = T)
-#' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
-#' 
-#' # Genetic correlation after adjustment
-#' cor(pop$geno_val$trait1, pop$geno_val$trait2)
-#' 
 #' @import dplyr
 #' @importFrom purrr pmap_chr
 #' 
 #' @export
 #' 
-sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ...) {
+sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -419,37 +397,15 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
     stop("For one or more traits, the qtl.model must be either totally complete (i.e.
          no NA) or totally missing (i.e. all NA).")
   
-  # If the geno input is a list, combine
-  if (is.list(geno))
-    geno <- do.call("cbind", geno)
-  
-  # If the geno input is haploid data, convert to geno
-  if (is_haploid(geno))
-    geno <- haploid_to_geno(geno)
-  
-  
-  # pos.corr must be logicial, if present. If not, set to NULL
-  if (missing(pos.corr) | is.null(pos.corr)) {
-    pos.corr <- NULL
-    
-  } else {
-    pos.corr <- as.logical(pos.corr)
-    
-  }
-  
   
   ## Error handling of prob.corr
   # Make sure it has three columns
-  if (ncol(prob.corr) < 3)
+  if (ncol(prob.corr) != 2)
     stop("The 'prob.corr' input must have 3 columns.")
   
   # Are all probabilities between 0 and 1?
   if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
     stop("The probabilities in 'prob.corr' are not all between 0 and 1.")
-  
-  # Are all correlations between 0 and 1?
-  if (!all(prob.corr[,3] >= 0 & prob.corr[,3] <= 1))
-    stop("The minimum correlations in 'prob.corr' are not all between 0 and 1.")
   
   # Do the probabilities sum to 1
   if (!sum(prob.corr[,2]) == 1)
@@ -483,6 +439,10 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
   # If any should be randomly generated, continue
   if (any(random_qtl)) {
     
+    # Make sure the qtl models have the same number of QTL
+    if (n_distinct(n_qtl_per_trait) != 1) 
+      stop("The number of QTL in each qtl.model matrix must be the same.")
+    
     # Empty list to store information
     qtl_specs <- vector("list", n_trait)
     
@@ -506,25 +466,37 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
         stop("If the argument 'dom.dist' is provided, it must equal 'normal.'")
     
     
-    ## Simulate QTL for the first trait
-    n_qtl <- nrow(qtl.model[[1]])
+    ## Simulate QTL effects
+    n_qtl <- unique(n_qtl_per_trait)
+    
+    # Create a variance-covariance matrix for simulation
+    sigma <- rbind(c(1, corr), c(corr, 1))
+    # Cholesky composition of sigma
+    sigma_decomp <- chol(sigma, pivot = TRUE)
+    sigma_decomp <- sigma_decomp[, order(attr(sigma_decomp, "pivot"))]
     
     # Simulate additive effects
     if (add.dist == "normal") {
-      add.eff <- rnorm(n_qtl) 
+      add.eff <- matrix(rnorm(n = n_qtl * n_trait), nrow = n_qtl) %*% sigma_decomp
       
     } else if (add.dist == "geometric") {
       a <- (1 - n_qtl) / (1 + n_qtl)
-      add.eff <- sample(abs( a ^ (seq(n_qtl)) ))
+      a_mat <- replicate(n_trait, {sample(a ^ seq(n_qtl))})
       # Randomly assign favorable or unfavorable for the first allele
-      add.eff <- add.eff * sample(x = c(-1, 1), size = n_qtl, replace = TRUE)
+      a_mat1 <- a_mat * replicate(n_trait, sample(c(-1, 1), size = n_qtl, replace = TRUE))
+      
+      # Force correlation
+      add.eff <- a_mat1 %*% sigma_decomp
+      
     }
     
     # Simulate dominance effect 
     if (is.null(dom.dist)) {
       dom.eff <- rep(0, n_qtl)
+      
     } else {
       dom.eff <- rnorm(n_qtl)
+    
     }
     
     
@@ -545,58 +517,37 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
     marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
       mutate(marker = row.names(.))
     
-    # Set the new length of add.eff and dom.eff
-    length(add.eff) <- max.qtl
-    length(dom.eff) <- max.qtl
-    
     # Pad with 0, not NA, and add to the df
     marker_sample_pos1 <- marker_sample_pos %>%
-      mutate(add.eff = ifelse(is.na(add.eff), 0, add.eff),
-             dom.eff = ifelse(is.na(dom.eff), 0, dom.eff)) %>%
-      arrange(chr, pos)
+      arrange(chr, pos) %>%
+      mutate(add.eff = add.eff[,1],
+             dom.eff = dom.eff)
     
     # Extract the chr and pos
-    chr <- marker_sample_pos1$chr
-    pos <- marker_sample_pos1$pos
-    add.eff <- marker_sample_pos1$add.eff
-    dom.eff <- marker_sample_pos1$dom.eff
+    chr1 <- marker_sample_pos1$chr
+    pos1 <- marker_sample_pos1$pos
+    add.eff1 <- marker_sample_pos1$add.eff
+    dom.eff1 <- marker_sample_pos1$dom.eff
     
     # Assign marker name for these QTL
     qtl_marker_name <- marker_sample_pos1$marker
     
     # Assemble the matrix
-    qtl_specs[[1]] <- data.frame(chr = chr, pos = pos, add_eff = add.eff, dom_eff = dom.eff,
+    qtl_specs[[1]] <- data.frame(chr = chr1, pos = pos1, add_eff = add.eff1, dom_eff = dom.eff1,
                                  qtl_name = qtl_marker_name, qtl1_pair = NA, 
                                  stringsAsFactors = FALSE)
     
     
     for (t in seq(2, n_trait)) {
       
-      # Number of QTL
-      n_qtl <- nrow(qtl.model[[t]])
-      
-      # Simulate additive effects
-      if (add.dist == "normal") { 
-        add.eff <- rnorm(n_qtl)
-        
-      } else if (add.dist == "geometric") {
-        a <- (1 - n_qtl) / (1 + n_qtl)
-        add.eff <- sample(abs( a ^ (seq(n_qtl)) ))
-        # Randomly assign favorable or unfavorable for the first allele
-        add.eff <- add.eff * sample(x = c(-1, 1), size = n_qtl, replace = TRUE)
-        
-      }
-      
       # Simulate dominance effect 
       if (is.null(dom.dist)) {
         dom.eff <- rep(0, n_qtl)
+        
       } else {
         dom.eff <- rnorm(n_qtl)
-      }
       
-      # Set the new length of add.eff and dom.eff
-      length(add.eff) <- max.qtl
-      length(dom.eff) <- max.qtl
+      }
       
       # If the length of prob.corr is 1, output a vector of that prob.corr
       if (nrow(prob.corr) == 1) {
@@ -610,7 +561,7 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
       }
       
       # Pull out the linkage information and desired LD
-      corr_level <- prob.corr[,c(1,3), drop = FALSE]
+      linkage <- prob.corr[,1]
       
       # Create an empty data.frame
       qtl_specs[[t]] <- as.data.frame(
@@ -627,12 +578,10 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
       
       
       ## Iterate over the correlation levels
-      for (i in seq(nrow(corr_level))) {
+      for (i in seq_along(linkage)) {
         
         # Extract the linkage level p
-        p <- corr_level[i,1, drop = TRUE]
-        # Extract the LD level r
-        r <- corr_level[i,2, drop = TRUE]
+        p <- linkage[i]
         
         # If prob is 0, simulate pleiotropy by drawing chr and pos from the first trait
         if (p == 0) {
@@ -641,7 +590,9 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
           
           # Subset chromosomes and positions for these first QTL
           qtl_specs[[t]][which(qtl_designator == p), ] <- 
-            qtl_specs[[1]][qtl_one_sample, ]
+            qtl_specs[[1]][qtl_one_sample, ] %>%
+            mutate(add_eff = add.eff[qtl_one_sample, 2])
+          
           qtl_specs[[t]]$qtl1_pair[which(qtl_designator == p)] <- 
             qtl_specs[[1]]$qtl_name[qtl_one_sample]
           
@@ -664,7 +615,7 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
           # What is the previous level of p? If it is the first, set the minimum 
           # distance to 0.000001
           prev_p <- match(p, prob.corr[,1]) - 1
-          min_dist <- ifelse(prev_p == 0, 1e-6, corr_level[prev_p])
+          min_dist <- ifelse(prev_p == 0, 1e-6, linkage[prev_p])
           
           # If min_dist is 0, set to 1e-6
           min_dist <- ifelse(min_dist == 0, 1e-6, min_dist)
@@ -691,28 +642,16 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
             prox_qtl <- prox_mar_unique[[j]]
             
             # If prox_qtl has length 0, return NA
-            if (length(prox_qtl) == 0)
-              prox_mar_sample[j] <- NA
-            
-            geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(qtl1, prox_qtl))
-            # Subset for the qtl1
-            qtl1_cor <- suppressWarnings(cor(geno_q)[qtl1, , drop = TRUE])
-            
-            # Are there markers with correlations above the threshold?
-            test_corr <- abs(qtl1_cor[-1]) >= r
-            
-            if (any(na.omit(test_corr))) {
-              # If so, sample one and return
-              prox_mar_sample[j] <- sample(names(which(test_corr)), 1)
+            if (length(prox_qtl) == 0) {
+              prox_mar_sample[j] <- NA 
               
             } else {
-              # If not, return NA
-              prox_mar_sample[j] <- NA
+              prox_mar_sample[j] <- sample(prox_qtl, 1)
               
             }
-              
-              # Remove that marker from sampling in the future
-              prox_mar_unique <- sapply(prox_mar_unique, setdiff, prox_mar_sample[j])
+            
+            # Remove that marker from sampling in the future
+            prox_mar_unique <- sapply(prox_mar_unique, setdiff, prox_mar_sample[j])
             
           }
           
@@ -734,6 +673,9 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
           # Extract the QTL names that are paired
           qtl_specs[[t]][which(qtl_designator == p), "qtl1_pair"] <- 
             qtl_specs[[1]]$qtl_name[qtl_one_sample]
+          
+          # Add additive effects
+          qtl_specs[[t]][which(qtl_designator == p), "add_eff"] <- add.eff[qtl_one_sample, 2]
           
           # Replace the qtl1_row_vec with the the index of non-sampled qtl
           qtl1_row_vec <- setdiff(qtl1_row_vec, qtl_one_sample)
@@ -763,7 +705,6 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
       } # Close the loop per cor level
       
       # Re-add the additive and dominance effects
-      qtl_specs[[t]]$add_eff <- ifelse(is.na(add.eff), 0, add.eff)
       qtl_specs[[t]]$dom_eff <- ifelse(is.na(dom.eff), 0, dom.eff)
       
       ## Fill in markers that are NA
@@ -780,83 +721,6 @@ sim_multi_gen_model <- function(genome, qtl.model, geno, prob.corr, pos.corr, ..
       # Assign this info to the qtl_specs df for trait t
       qtl_specs[[t]][which(is.na(qtl_specs[[t]]$qtl_name)), c("chr", "pos", "qtl_name")] <- 
         marker_sample_pos
-      
-      # Extract the df
-      qtlmod_t <- qtl_specs[[t]]
-      
-      
-      
-      # If poss.corr is not NULL, adjust the effects to reflect that correlation
-      # If not, do nothing
-      if (!is.null(pos.corr)) {
-      
-      
-        ## Adjust the effects of QTL for trait 2 + to achieve the desired correlation
-        # A new vector of additive effects
-        adj_add_eff <- vector("numeric", nrow(qtlmod_t))
-        
-        # Iterate over qtl
-        for (i in seq(nrow(qtlmod_t))) {
-          
-          q <- qtlmod_t[i,]
-          
-          # If the qtl1_pair is NA, skip
-          if (is.na(q$qtl1_pair)) {
-            adj_add_eff[i] <- q$add_eff
-            
-          } else {
-            
-            # If the qtl_t name is the same as the qtl1 pair, the cor sign is 1
-            if (q$qtl_name == q$qtl1_pair) {
-              cor_sign <- 1
-              
-            } else {
-              # Pull out the genotypic data for that QTL and the QTL1 pair
-              geno_q <- pull_genotype(genome = genome, geno = geno, loci = c(q$qtl_name, q$qtl1_pair))
-              
-              # What is the sign of the correlation?
-              # If the sign is NA, set to 1
-              cor_sign <- suppressWarnings(sign(cor(geno_q)[-1,1]))
-              cor_sign <- ifelse(is.na(cor_sign), 1, cor_sign)
-              
-            }
-            
-            # What is the sign of the qtl_t add_eff?
-            qtl_t_sign <- sign(q$add_eff)
-            # What is the sign of the qtl1 pair?
-            qtl1_sign <- sign(subset(qtl_specs[[1]], qtl_name == q$qtl1_pair, 
-                                     add_eff, drop = TRUE))
-            
-            # If the intended correlation is positive...
-            if (pos.corr) {
-              # If the geno corr sign is positive, the add_eff for qtl_t should be the same
-              # sign as that for qtl1
-              if (cor_sign == 1) {
-                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
-              } else{
-                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
-              }
-              
-              # If the intended correlation is negative...
-            } else {
-              # If the geno corr sign is positive, the add_eff for qtl_t should be the opposite
-              # sign as that for qtl1
-              if (cor_sign == 1) {
-                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff * -1, q$add_eff)
-              } else{
-                adj_add_eff[i] <- ifelse(qtl_t_sign == qtl1_sign, q$add_eff, q$add_eff * -1)
-              }
-              
-            }
-            
-          }} # Close the loop
-        
-        # Edit the t-th model
-        qtl_specs[[t]] <- qtlmod_t %>%
-          mutate(chr = factor(chr, levels = chrnames(genome)),
-                 add_eff = adj_add_eff)
-        
-      } # Close the pos.corr if statement
       
     } # Close the loop
     

@@ -4,37 +4,25 @@
 \alias{sim_multi_gen_model}
 \title{Define a genetic model for two or more traits}
 \usage{
-sim_multi_gen_model(genome, qtl.model, geno, prob.corr, pos.corr, ...)
+sim_multi_gen_model(genome, qtl.model, corr, prob.corr, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{qtl.model}{A matrix specifying the QTL model. Each row corresponds to
-a different QTL. The first column gives the chromosome number, the second 
-column gives the locus position (in cM), the third column gives the additive effect of
-the favorable QTL allele (\code{a}) and the fourth column gives the dominance
-effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
-randomly assigned based on the number of rows in the matrix. If the genetic 
-architecture of multiple traits is desired, a list of length \code{n_trait}
-of \code{qtl.model} matrices can be provided. See \emph{Details} for more 
-information.}
+\item{qtl.model}{A matrix specifying the QTL model. See \code{\link{pbsim}[sim_gen_model]}.
+If the qtl.model matrices are NA, the two traits must have the same number of QTL.}
 
-\item{geno}{Genotype data on a population to phenotype. Can be a matrix of dimensions
-\code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-of such matrices.}
+\item{corr}{The desired genetic correlation if QTL are to be drawn randomly.
+May be positive or negative. See \code{Details} regarding the multivariate 
+random sampling of additive effects.}
 
-\item{prob.corr}{A matrix of three columns defining the probabilities
-that QTL for two or more traits are in some form that might confer genetic 
-correlation. The first column sets the maximum distance between a QTL from 
-a second trait and a QTL from the first trait, the second column is the
-probability that QTL from a second trait have that maximum distance, and the 
-third column specifies the minimum correlation (i.e. linkage disequilibrium) 
-between QTL of one trait and QTL of another. Pleiotropic QTL can be simulated 
-by providing a 0 in the first column, and no genetic linkage is simulated if 
-50 is in the first column.}
-
-\item{pos.cor}{A logical indicating whether the two traits should be positively correlated.
-If not passed, the correlation is not forced to be positive or negative.}
+\item{prob.corr}{A matrix of two columns defining the probabilities that pairs 
+of QTL for two or more traits are at most \code{x} cM apart. The first column 
+sets the maximum distance between a QTL from  a second trait and a QTL from the 
+first trait, and the second column is the probability that QTL from a second 
+trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
+a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
+first column.}
 }
 \description{
 Generates a genetic model for two or more traits with desired genetic correlation.
@@ -51,23 +39,21 @@ assigned a genotypic value of \code{-a}. The value of \code{a} provided in
 \code{qtl.model} can be negative. The fourth column is the dominance effect at the 
 QTL. If non-zero, this value can be larger that \code{a} or smaller than \code{-a} 
 (overdominance). The genotypic value of heterozygotes at the QTL is \code{d}.
- 
-Although QTL for two traits can be linked, depending on the population, they
-may not be highly correlated. If a correlation between two traits is desired,
-this function will first resample markers to become QTL based on the desired
-linkaged and correlations between the genotypes at those QTL. Next, the function
-will edit the additive effects in all but the first trait to 
-induce the desired correlation between traits.
 
 Other arguments include:
 \describe{
   \item{\code{add.dist}}{The distribution of additive effects of QTL (if additive 
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} or \code{"geometric"}. For a distribution of \code{"normal"}, 
-  additive effects are generated via the \code{\link[stats]{rnorm}} function.
-  For a distribution of \code{"geometric"}, additive effects are calculated for
-  the k-th QTL as \eqn{a^k} where \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is 
-  the number of QTL (Lande and Thompson, 1990).}
+  additive effects are generated via a multivariate normal distribution using
+  the \code{\link[mvtnorm]{rmvnorm}} function and with variance-covariance matrix
+  \code{Sigma = rbind(c(1, corr), c(corr, 1))}. For a distribution of \code{"geometric"}, 
+  additive effects are calculated for the k-th QTL as \eqn{a^k} where 
+  \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is the number of QTL (Lande and Thompson, 1990).}.
+  the same variance-covariance matrix above is then used to adjust the additive
+  effects to achieve the desired correlation. This approach assumes that pairs
+  of QTL are in coupling phase linkage, therefore the desired correlation will
+  be different than the observed correlation depending on the population.
   \item{\code{dom.dist}}{The distribution of dominance effects of QTL (if dominance
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} for normally-distributed dominance effects.}
@@ -104,15 +90,6 @@ genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model,
 pop <- create_pop(genome = genome, geno = s2_cap_haploid)
 
 # Genetic correlation prior to adjustment
-cor(pop$geno_val$trait1, pop$geno_val$trait2)
-
-# Adjust the genome
-prob.corr <- cbind(2, 1, 0.3)
-genome <- adj_gen_model(genome = genome, geno = s2_cap_haploid, prob.corr = prob.corr, 
-pos.corr = T)
-pop <- create_pop(genome = genome, geno = s2_cap_haploid)
-
-# Genetic correlation after adjustment
 cor(pop$geno_val$trait1, pop$geno_val$trait2)
 
 }
