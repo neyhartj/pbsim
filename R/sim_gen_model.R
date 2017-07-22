@@ -336,9 +336,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' genome <- sim_genome(map = map, type = "hypred")
 #' 
 #' # Simulate two traits with 30 QTL, 1/3 with pairwise linkage of 0 < x <= 2 cM
-#' # and 2/3 with pairwise linkage of 2 < x <= 20. The first set of QTL should have
-#' # an LD of at least 0.5, and the second set of QTL should have an LD of at least
-#' # 0.1
+#' # and 2/3 with pairwise linkage of 2 < x <= 20.
 #' qtl.model <- replicate(2, matrix(nrow = 30, ncol = 4), simplify = FALSE)
 #' prob.corr <- cbind(c(2, 20), c(0.333, 0.667), c(0.5, 0.1))
 #' 
@@ -401,7 +399,7 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
   ## Error handling of prob.corr
   # Make sure it has three columns
   if (ncol(prob.corr) != 2)
-    stop("The 'prob.corr' input must have 3 columns.")
+    stop("The 'prob.corr' input must have 2 columns.")
   
   # Are all probabilities between 0 and 1?
   if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
@@ -509,6 +507,17 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
       max.qtl <- max(sapply(X = qtl.model, nrow))
     
     
+    if (nrow(add.eff) < max.qtl) {
+      add.eff <- rbind(add.eff, matrix(0, nrow = max.qtl - nrow(add.eff), ncol = ncol(add.eff)))
+      # Resample
+      add.eff <- add.eff[sample(nrow(add.eff)),]
+      
+      # Pad with 0
+      length(dom.eff) <- max.qtl
+      dom.eff <- ifelse(is.na(dom.eff), 0, dom.eff)
+      
+    }
+      
     
     # Sample marker names to become QTL
     marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = max.qtl)
@@ -517,7 +526,7 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
     marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
       mutate(marker = row.names(.))
     
-    # Pad with 0, not NA, and add to the df
+    # add to the df
     marker_sample_pos1 <- marker_sample_pos %>%
       arrange(chr, pos) %>%
       mutate(add.eff = add.eff[,1],
@@ -547,6 +556,13 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
       } else {
         dom.eff <- rnorm(n_qtl)
       
+      }
+      
+      if (length.POSIXlt(dom.eff) < max.qtl) {
+        # Pad with 0
+        length(dom.eff) <- max.qtl
+        dom.eff <- ifelse(is.na(dom.eff), 0, dom.eff)
+        
       }
       
       # If the length of prob.corr is 1, output a vector of that prob.corr
@@ -705,7 +721,8 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
       } # Close the loop per cor level
       
       # Re-add the additive and dominance effects
-      qtl_specs[[t]]$dom_eff <- ifelse(is.na(dom.eff), 0, dom.eff)
+      qtl_specs[[t]]$dom_eff <- dom.eff
+      qtl_specs[[t]]$add_eff[is.na(qtl_specs[[t]]$add_eff)] <- 0
       
       ## Fill in markers that are NA
       # Randomly draw markers to be QTL, excluding those already designated as QTL

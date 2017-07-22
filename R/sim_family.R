@@ -328,6 +328,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
 #' 
 #' @importFrom simcross check_pedigree
 #' @import dplyr
+#' @importFrom purrr by_row
 #' 
 #' @export
 #' 
@@ -364,22 +365,12 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   fam_cb <- crossing.block %>% 
     # Add family number
     mutate(fam_num = row_number()) %>%
-    rowwise() %>%
-    do(fam = {
-      founder_geno <- subset_pop(pop = founder.pop, individual = c(.$parent1, .$parent2))
+    by_row(function(cross) {
+      founder_geno <- subset_pop(pop = founder.pop, individual = c(cross$parent1, cross$parent2))
       sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                 family.num = .$fam_num, ... = ...) })
+                 family.num = cross$fam_num, ... = ...) }, .to = "fam")
   
-  fam_cb <- crossing.block %>% 
-    # Add family number
-    mutate(fam_num = row_number()) %>%
-    rowwise() %>%
-    do(fam = {
-      founder_geno <- subset_pop(pop = founder.pop, individual = c(.$parent1, .$parent2))
-      sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                 family.num = .$fam_num, ... = ...) })
 
-  
   # Combine the populations and return
   combine_pop(pop_list = fam_cb$fam)
 
