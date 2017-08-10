@@ -688,6 +688,10 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
           
           marker_sample <- sample(x = avail_markers, size = sum(qtl_designator == p))
           
+          # If the length of the sample is 0, skip
+          if (length(marker_sample) == 0)
+            next
+          
           # Get the positions of those markers
           marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
             mutate(marker = row.names(.))
