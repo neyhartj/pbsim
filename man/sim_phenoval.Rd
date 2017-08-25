@@ -4,7 +4,7 @@
 \alias{sim_phenoval}
 \title{Simulate phenotypic data}
 \usage{
-sim_phenoval(pop, h2, n.env = 1, n.rep = 1, ...)
+sim_phenoval(pop, h2, n.env = 1, n.rep = 1, return.eff = TRUE, ...)
 }
 \arguments{
 \item{pop}{An object of class \code{pop}.}
@@ -16,6 +16,8 @@ length n_trait.}
 \item{n.env}{The number of environments in which to phenotype.}
 
 \item{n.rep}{The number of replicates of each individual in each environment.}
+
+\item{return.eff}{Should the variance components and effects be returned?}
 
 \item{...}{Other arguments. See \code{Details}.}
 }
@@ -30,10 +32,10 @@ heritability of a quantitative trait.
 \details{
 Other arguments that can be specified are :
 \describe{
-  \item{\code{V_E}}{The variance of environmental effects. May be a numeric vector of 
-length 1 (V_E is the same for all traits) or a numeric vector of length n_trait. }
-  \item{\code{V_R}}{The variance of the residual effects.May be a numeric vector of 
-length 1 (V_R is the same for all traits) or a numeric vector of length n_trait. }
+  \item{\code{V_E}}{The variance of environmental effects. May be a scalar 
+  (V_E is the same for all traits) or a numeric vector of length n_trait. }
+  \item{\code{V_R}}{The variance of the residual effects.May be a scalar 
+  (V_R is the same for all traits) or a numeric vector of length n_trait. }
 }
 
 Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},

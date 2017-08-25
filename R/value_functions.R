@@ -68,16 +68,17 @@ calc_genoval <- function(genome, geno) {
 #' length n_trait. 
 #' @param n.env The number of environments in which to phenotype.
 #' @param n.rep The number of replicates of each individual in each environment.
+#' @param return.eff Should the variance components and effects be returned?
 #' @param ... Other arguments. See \code{Details}.
 #' 
 #' @details
 #' 
 #' Other arguments that can be specified are :
 #' \describe{
-#'   \item{\code{V_E}}{The variance of environmental effects. May be a numeric vector of 
-#' length 1 (V_E is the same for all traits) or a numeric vector of length n_trait. }
-#'   \item{\code{V_R}}{The variance of the residual effects.May be a numeric vector of 
-#' length 1 (V_R is the same for all traits) or a numeric vector of length n_trait. }
+#'   \item{\code{V_E}}{The variance of environmental effects. May be a scalar 
+#'   (V_E is the same for all traits) or a numeric vector of length n_trait. }
+#'   \item{\code{V_R}}{The variance of the residual effects.May be a scalar 
+#'   (V_R is the same for all traits) or a numeric vector of length n_trait. }
 #' }
 #' 
 #' Environmental effects are drawn from a normal distribution such that \eqn{e ~ N(0, V_E)},
@@ -119,7 +120,7 @@ calc_genoval <- function(genome, geno) {
 #' 
 #' @export 
 #' 
-sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
+sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, return.eff = TRUE, ...) {
   
   # Make sure pop inherits the class "pop"
   if (!inherits(pop, "pop"))
@@ -188,8 +189,11 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   var_comp <- list(V_G = V_G, V_E = V_E, V_R = V_R)
   
   # Generate environment effects
-  t <- lapply(V_E, sqrt) %>% 
+  t_eff <- lapply(V_E, sqrt) %>% 
     lapply(rnorm, n = n.env, mean = 0) %>%
+    lapply(structure, names = paste("env", seq(n.env), sep = ""))
+  
+  t <- t_eff %>%
     lapply(matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = T)
   
   # Generate residual effects
@@ -216,6 +220,9 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     
   }, SIMPLIFY = FALSE)
   
+  # List of environmental effects
+  effects <- list(env = t_eff)
+  
   
   # Tidy the phenotypes
   p_df <- mapply(names(p), p, FUN = function(tr, ph)
@@ -235,11 +242,21 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     as.data.frame()
   
   # Add data to the pop object
-  pheno_val <- list(
-    var_comp = var_comp,
-    pheno_obs = p_df1,
-    pheno_mean = mu_p
-  )
+  if (return.eff) {
+    pheno_val <- list(
+      var_comp = var_comp,
+      effects = effects,
+      pheno_obs = p_df1,
+      pheno_mean = mu_p
+    )
+    
+  } else {
+    pheno_val <- list(
+      pheno_obs = p_df1,
+      pheno_mean = mu_p
+    )
+    
+  }
   
   pop[["pheno_val"]] <- pheno_val
   

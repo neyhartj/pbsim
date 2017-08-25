@@ -148,12 +148,12 @@ subset_pop <- function(pop, individual) {
   
   # Subset various components
   new_pop$geno <- lapply(X = pop$geno, FUN = "[", individual, , drop = FALSE)
-  new_pop$geno_val <- filter(pop$geno_val, ind %in% individual)
+  new_pop$geno_val <- subset(pop$geno_val, ind %in% individual)
 
   # Subset phenotypic values, if present
   if ("pheno_val" %in% element_names) {
     # Get rid of the variance component estimate
-    new_pop$pheno_val <- pop$pheno_val[-1]
+    new_pop$pheno_val <- pop$pheno_val[c("pheno_obs", "pheno_mean")]
     
     # Subset the phenotypic observations and pheno_mean
     new_pop$pheno_val <- lapply(X = new_pop$pheno_val, filter, ind %in% individual)

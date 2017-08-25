@@ -592,8 +592,25 @@ map_to_table <- function(genome) {
   return(pos_df)
   
 }
-  
-  
+
+#' Convert a table of genetic positions to a map
+#' 
+#' @description This function is a simple wrapper around \code{\link[qtl]{table2map}}.
+#' 
+#' @param df A \code{data.frame} of genetic positions. The first column is the 
+#' chromosome and the second column is the genetic position (in cM). Row names
+#' should be the marker names.
+#' 
+#' @return 
+#' A \code{list} with length equal to the number of chromosomes. Elements in the
+#' list are named numeric vectors of genetic positions and the names are the
+#' marker names. 
+#' 
+#' @importFrom qtl table2map
+#' 
+#' @export
+#' 
+table_to_map <- function(df) table2map(df)
 
 
 
