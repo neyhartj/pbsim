@@ -328,7 +328,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
 #' 
 #' @importFrom simcross check_pedigree
 #' @import dplyr
-#' @importFrom purrr by_row
+#' @importFrom purrrlyr by_row
 #' 
 #' @export
 #' 
