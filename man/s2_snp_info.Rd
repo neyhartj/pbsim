@@ -4,7 +4,7 @@
 \name{s2_snp_info}
 \alias{s2_snp_info}
 \title{Two-Row Barley CAP Marker Map}
-\format{An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 1598 rows and 4 columns.}
+\format{An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 2375 rows and 4 columns.}
 \usage{
 s2_snp_info
 }

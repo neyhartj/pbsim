@@ -4,7 +4,7 @@
 \name{s2_cap_genos}
 \alias{s2_cap_genos}
 \title{Two-Row Barley CAP Marker Data}
-\format{An object of class \code{matrix} with 182 rows and 1587 columns.}
+\format{An object of class \code{matrix} with 1695 rows and 2375 columns.}
 \usage{
 s2_cap_genos
 }
