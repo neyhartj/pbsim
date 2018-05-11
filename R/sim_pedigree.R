@@ -75,7 +75,7 @@ sim_pedigree <- function(n.ind, bcpar, n.bcgen = 0, n.selfgen = Inf) {
   
   # A vector of sex indicators
   sex <- numeric(n.total)
-  sex[2] <- 1
+  sex[1] <- 1
   
   n.gen <- 1 + n.bcgen + n.selfgen
   gen.ind <- seq_len(n.gen)
