@@ -36,7 +36,6 @@
 #' # Simulate the founder genotypes
 #' founder_geno <- sim_founders(genome)
 #' 
-#' @import dplyr
 #' @importFrom qtl sim.cross
 #' @importFrom qtl pull.map
 #' 
@@ -56,10 +55,11 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
     map <- genome$map
     
   } else {
-    map <- lapply(X = genome$hypredGenomes, FUN = slot, "pos.snp") %>% 
-      lapply(function(chr) chr * 100) %>% 
-      lapply(structure, class = "A") %>% 
-      structure(class = "map")
+    map <- lapply(X = genome$hypredGenomes, function(hyp_chr) {
+      # Extract and convert to cM
+      structure(slot(object = hyp_chr, "pos.snp") * 100, class = "A") })
+    
+    class(map) <- "map"
   
   }
     
@@ -137,8 +137,8 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
   if (type == "hypred") {
     
     # Split the genos by individual
-    geno_split <- split(geno, 1:nrow(geno), drop = FALSE) %>%
-      lapply(FUN = function(ind) rbind(ind / 2, ind / 2) )
+    geno_split <- split(geno, 1:nrow(geno), drop = FALSE)
+    geno_split <- lapply(geno_split, FUN = function(ind) rbind(ind / 2, ind / 2) )
     
     # Empty array
     haploid <- array(data = NA, dim = c(2, ncol(geno), length(geno_split)),

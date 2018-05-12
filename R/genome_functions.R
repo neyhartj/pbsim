@@ -135,8 +135,6 @@ nmar <- function(genome, by.chr = FALSE) {
 #' @return 
 #' A vector of character strings (the marker names).
 #' 
-#' @import dplyr
-#' 
 #' @export
 #' 
 markernames <- function(genome, chr, include.qtl = FALSE) {
@@ -160,7 +158,8 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
     
   } else if (type == "hypred") {
     # Get all loci names
-    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% lapply(names)
+    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp")
+    loci_names <- lapply(loci_names, names)
     
   }
   
@@ -225,7 +224,7 @@ nchr <- function(genome) {
 #' 
 #' @export
 #' 
-chrnames <- function(genome, chr) {
+chrnames <- function(genome) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -287,8 +286,6 @@ chrlen <- function(genome) {
 #' @param genome An object of class \code{genome}.
 #' @param unique Logical. Should information of only the unique QTL be returned?
 #' 
-#' @import dplyr
-#' 
 #' @export
 #' 
 pull_qtl <- function(genome, unique = TRUE) {
@@ -302,10 +299,12 @@ pull_qtl <- function(genome, unique = TRUE) {
     stop("No genetic model has been declared for the genome")
   
   # Unique qtl
-  all_qtl <- genome$gen_model %>% 
-    mapply(seq_along(.), FUN = function(qtlmod, traitn) 
-      mutate(qtlmod, trait = traitn), SIMPLIFY = FALSE) %>%
-    bind_rows()
+  all_qtl <- mapply(genome$gen_model, seq_along(genome$gen_model), FUN = function(qtlmod, traitn) {
+    qtlmod$trait <- traitn
+    return(qtlmod)
+  }, SIMPLIFY = FALSE)
+  
+  all_qtl <- do.call("rbind", all_qtl)
   
   if (unique) {
     return(distinct(all_qtl, chr, pos, .keep_all = TRUE))
@@ -314,6 +313,8 @@ pull_qtl <- function(genome, unique = TRUE) {
   }
   
 } # Close the function
+
+
 
 #' Extract the number of QTL in the genome
 #' 
@@ -326,8 +327,6 @@ pull_qtl <- function(genome, unique = TRUE) {
 #' @return 
 #' If \code{by.chr = TRUE}, a vector of the QTL per chromosomes. If 
 #' \code{by.chr = FALSE}, a scalar of the total number of QTL.
-#' 
-#' @import dplyr
 #' 
 #' @export
 #' 
@@ -401,8 +400,6 @@ qtlnames <- function(genome, chr) {
 #' 
 #' @return 
 #' A \code{data.frame} of the pleiotropic QTL per trait.
-#'  
-#' @import dplyr
 #' 
 #' @export
 #' 
@@ -417,86 +414,21 @@ pull_plei_qtl <- function(genome) {
     stop("No genetic model has been declared for the genome")
   
   # Combind genetic models for traits
-  all_mods <- lapply(seq_along(genome$gen_model), FUN = function(i) 
-    genome$gen_model[[i]] %>% mutate(trait = i) ) %>%
-    bind_rows() %>%
-    select(trait, chr:dom_eff)
+  all_mods <- lapply(seq_along(genome$gen_model), FUN = function(i) {
+    genome$gen_model[[i]]$trait <- i
+    return(genome$gen_model[[i]]) })
+  
+  all_mods <- do.call("rbind", all_mods)[,c("trait", "chr", "pos", "add_eff", "dom_eff")]
 
   # Find duplications by finding the pairwise union
   dup_mod <- duplicated(subset(all_mods, select = c(chr, pos))) | 
     duplicated(subset(all_mods, select = c(chr, pos)), fromLast = TRUE)
   
-  all_mods %>% 
-    slice(which(dup_mod))
+  all_mods[which(dup_mod),,drop = FALSE]
   
 } # Close the function
 
 
-#' Extract the perfect markers from the genome
-#' 
-#' @description 
-#' Extract SNP markers that are also QTL
-#' 
-#' @param genome An object of class \code{genome}.
-#' @param by.chr Logical. Should the number of perfect markers per chromosome be returned?
-#' 
-#' @return 
-#' A \code{list} of the perfect QTL.
-#' 
-#' @examples
-#' n.mar  <- c(3, 3, 3)
-#' len <- c(120, 130, 140)
-#' 
-#' map <- lapply(X = seq(3), FUN = function(i) 
-#'   structure(c(20, 50, 80), names = paste("C", i, "M", seq(3), sep = "")))
-#' 
-#' genome <- sim_genome(len, n.mar, map)
-#' 
-#' # Simulate genetic architecture with one perfect marker per chromosome
-#' chromosome <- seq(3)
-#' pos <- rep(50, 3)
-#' a <- rep(1, 3)
-#' d <- 0
-#' 
-#' qtl.model <- cbind(chromosome, pos, a, d)
-#' 
-#' genome <- sim_gen_model(genome, qtl.model)
-#'  
-#' @import dplyr
-#' 
-#' @export
-#' 
-pull_perf_mar <- function(genome, by.chr = FALSE) {
-  
-  # Make sure genome inherits the class "genome."
-  if (!inherits(genome, "genome"))
-    stop("The input 'genome' must be of class 'genome.'")
-  
-  # Make sure there is a genetic model
-  if (is.null(genome$gen_model))
-    stop("No genetic model has been declared for the genome")
-  
-  # Pull out the unique QTL
-  unique_qtl <- pull_qtl(genome = genome, unique = TRUE)
-  
-  qtl_ann <- unique_qtl %>% 
-    rowwise() %>% 
-    mutate(perf_mar = list(genome$map[[chr]] %in% pos)) %>%
-    mutate(perf_mar = ifelse(any(perf_mar), names(genome$map[[chr]])[which(perf_mar)], NA)) %>%
-    as.data.frame()
-  
-  # Reduce
-  perf_count <- qtl_ann %>% 
-    filter(!is.na(perf_mar))
-    
-  # Split by chromsome?
-  if (by.chr) {
-    split(perf_count, perf_count$chr)
-  } else {
-    return(perf_count)
-  }
-  
-} # Close the function
 
 
 #' Extract the total number of loci in the genome
@@ -549,8 +481,6 @@ nloci <- function(genome, by.chr = FALSE) {
 #' A \code{data.frame} with two columns: chromosome name and position, with row names
 #' equal to marker names
 #' 
-#' @import dplyr
-#' 
 #' @export
 #' 
 map_to_table <- function(genome) {
@@ -565,28 +495,24 @@ map_to_table <- function(genome) {
   # Pipe by type
   if (type == "pbsim") {
     
-    pos_df <- lapply(X = genome$map, structure, class = NULL) %>% 
-      lapply(FUN = as.data.frame) %>% 
-      lapply(structure, names = "pos") %>% 
-      mapply(chrnames(genome), FUN = function(pos, chrname)
-        data.frame(chr = chrname, pos, stringsAsFactors = FALSE), SIMPLIFY = FALSE) %>%
-      do.call("rbind", .)
-    
-    row.names(pos_df) <- markernames(genome, include.qtl = TRUE)
+    # Extract the genome map
+    genome_map <- genome$map
     
   } else if (type == "hypred") {
+
+    # Extract the genome map
+    genome_map <- lapply(genome$hypredGenomes, slot, "pos.snp")
     
-    # Create a data.frame of chr and pos
-    pos_df <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% 
-      lapply(FUN = as.data.frame) %>% 
-      lapply(structure, names = "pos") %>%
-      mapply(chrnames(genome), FUN = function(pos, chrname)
-        data.frame(chr = chrname, pos * 100, stringsAsFactors = FALSE), SIMPLIFY = FALSE) %>%
-      do.call("rbind", .)
-    
-    row.names(pos_df) <- markernames(genome, include.qtl = TRUE)
+    # Convert to cM
+    genome_map <- lapply(genome_map, FUN = `*`, 100)
     
   }
+  
+  ## apply a function over the chromosomes in the map
+  pos_df <- mapply(seq_along(genome_map), genome_map, FUN = function(chr, map) 
+    cbind(chr = chr, as.data.frame(structure(map, class = NULL), nm = "pos")), SIMPLIFY = FALSE)
+  
+  pos_df <- do.call("rbind", pos_df)
   
   # Return the data.frame
   return(pos_df)
@@ -619,8 +545,6 @@ table_to_map <- function(df) table2map(df)
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param marker See \code{\link[qtl]{find.markerpos}}.
-#' 
-#' @import dplyr
 #' 
 #' @export
 #' 

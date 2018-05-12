@@ -55,7 +55,6 @@
 #' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
 #' 
 #' 
-#' @import dplyr
 #' @importFrom abind abind
 #' 
 #' @export

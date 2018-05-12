@@ -7,7 +7,6 @@
 #' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
 #' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
 #' 
-#' @import dplyr
 #' @importFrom abind abind
 #' 
 #' @export

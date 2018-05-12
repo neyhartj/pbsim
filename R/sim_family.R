@@ -99,7 +99,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
-  if (!simcross::check_pedigree(pedigree, ignore_sex = TRUE))
+  if (!check_pedigree(pedigree, ignore_sex = TRUE))
     stop("The pedigree is not formatted correctly.")
   
   # Get the genome type

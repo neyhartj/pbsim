@@ -4,7 +4,7 @@
 \alias{chrnames}
 \title{Extract chromosome names}
 \usage{
-chrnames(genome, chr)
+chrnames(genome)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
