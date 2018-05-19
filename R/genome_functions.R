@@ -286,6 +286,8 @@ chrlen <- function(genome) {
 #' @param genome An object of class \code{genome}.
 #' @param unique Logical. Should information of only the unique QTL be returned?
 #' 
+#' @importFrom dplyr distinct
+#' 
 #' @export
 #' 
 pull_qtl <- function(genome, unique = TRUE) {

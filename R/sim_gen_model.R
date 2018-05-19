@@ -231,8 +231,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
   
   # Add the genetic model to the genome
   genome[["gen_model"]] <- qtl_specs %>%
-    lapply(arrange, chr, pos) %>%
-    lapply(mutate, chr = factor(chr, levels = chrnames(genome)))
+    lapply(arrange, chr, pos)
   
   ## Add names of QTL if not present
   # Pull out all QTL
