@@ -4,7 +4,8 @@
 \alias{sim_founders}
 \title{Simulate founders}
 \usage{
-sim_founders(genome, n.str = c("2", "4", "8"), pat.freq)
+sim_founders(genome, n.str = c("2", "4", "8"), pat.freq,
+  ignore.gen.model = FALSE)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

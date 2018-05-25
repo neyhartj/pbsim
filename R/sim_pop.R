@@ -6,6 +6,7 @@
 #' 
 #' @param genome A genome object.
 #' @param n.ind The number of individual in the population.
+#' @param ignore.gen.model Logical - should the gene model be ignored?
 #' 
 #' @return 
 #' A \code{pop} object.
@@ -27,7 +28,7 @@
 #' 
 #' @export
 #' 
-sim_pop <- function(genome, n.ind) {
+sim_pop <- function(genome, n.ind, ignore.gen.model = FALSE) {
   
   # Check inputs
   stopifnot(class(genome) == "genome")
@@ -63,7 +64,7 @@ sim_pop <- function(genome, n.ind) {
   geno1 <- do.call("cbind", geno)
   
   # Create the population
-  create_pop(genome = genome, geno = geno1)
+  create_pop(genome = genome, geno = geno1, ignore.gen.model = ignore.gen.model)
   
 }
     

@@ -4,7 +4,7 @@
 \alias{create_pop}
 \title{Create a population object}
 \usage{
-create_pop(genome, geno)
+create_pop(genome, geno, ignore.gen.model = FALSE)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -14,6 +14,9 @@ create_pop(genome, geno)
 the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
 genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
 \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.}
+
+\item{ignore.gen.model}{Logical - should any gene model be ignored when creating
+the population? Use this to force a population without a gene model.}
 }
 \value{
 An object of class \code{pop} with genotype information for the individuals in

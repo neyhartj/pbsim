@@ -9,6 +9,8 @@
 #' the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
 #' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
 #' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
+#' @param ignore.gen.model Logical - should any gene model be ignored when creating
+#' the population? Use this to force a population without a gene model.
 #' 
 #' 
 #' @details 
@@ -59,7 +61,7 @@
 #' 
 #' @export
 #' 
-create_pop <- function(genome, geno) {
+create_pop <- function(genome, geno, ignore.gen.model = FALSE) {
   
   ## Error handling
   # Make sure genome inherits the class "genome."
@@ -67,7 +69,7 @@ create_pop <- function(genome, geno) {
     stop("The input 'genome' must be of class 'genome.'")
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = geno))
+  if (!check_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model))
     stop("The geno did not pass. See warning for reason.")
   
   # Genome type
@@ -110,10 +112,14 @@ create_pop <- function(genome, geno) {
   geno <- geno[order(row.names(geno)),]
   
   # Split the geno matrix into chromosomes
-  geno_split <- split_geno(genome = genome, geno = geno)
+  geno_split <- split_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model)
   
-  # Calculate the genotypic value
-  geno_val <- calc_genoval(genome = genome, geno = geno_split)
+  # Calculate the genotypic value - ignore if told so
+  if (ignore.gen.model) {
+    geno_val <- NULL
+  } else {
+    geno_val <- calc_genoval(genome = genome, geno = geno_split)
+  }
   
   
   # Add data to the pop

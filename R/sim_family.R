@@ -6,6 +6,7 @@
 #' @param founder.pop An object of class \code{pop} with the geno information for
 #' the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
 #' object.
+#' @param ignore.gen.model Logical - should the gene model be ignored?
 #' 
 #' @details 
 #' Other arguments can be passed to internal functions in \code{sim_family}:
@@ -84,7 +85,7 @@
 #' 
 #' @export
 #' 
-sim_family <- function(genome, pedigree, founder.pop, ...) {
+sim_family <- function(genome, pedigree, founder.pop, ignore.gen.model = FALSE, ...) {
   
   # Error
   if (!inherits(genome, "genome"))
@@ -95,7 +96,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
     stop("The input 'founder.pop' must be of class 'pop'")
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = founder.pop$geno))
+  if (!check_geno(genome = genome, geno = founder.pop$geno, ignore.gen.model = ignore.gen.model))
     stop("The geno did not pass. See warning for reason.")
   
   # Check the pedigree
@@ -190,7 +191,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
     
     # Convert the progeny genotypes to the parental states
     prog_geno <- t(apply(X = prog_genos, MARGIN = 1, FUN = function(prog) {
-      founder_multipoint[cbind(prog, seq(nrow(founder_multipoint)))] }))
+      founder_multipoint[cbind(prog, seq(ncol(founder_multipoint)))] }))
     
     dimnames(prog_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
     
@@ -256,7 +257,7 @@ sim_family <- function(genome, pedigree, founder.pop, ...) {
   }
     
   # Create the pop
-  create_pop(genome = genome, geno = prog_geno)
+  create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
   
 } # Close the function
 

@@ -22,5 +22,7 @@ Imports:
     simcross
 Suggests: knitr,
     rmarkdown
-Remotes: github::kbroman/simcross
+Remotes: 
+    github::kbroman/simcross
+    github::cran/hypred
 VignetteBuilder: knitr

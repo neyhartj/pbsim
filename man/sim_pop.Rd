@@ -4,12 +4,14 @@
 \alias{sim_pop}
 \title{Simulate a population}
 \usage{
-sim_pop(genome, n.ind)
+sim_pop(genome, n.ind, ignore.gen.model = FALSE)
 }
 \arguments{
 \item{genome}{A genome object.}
 
 \item{n.ind}{The number of individual in the population.}
+
+\item{ignore.gen.model}{Logical - should the gene model be ignored?}
 }
 \value{
 A \code{pop} object.

@@ -41,7 +41,7 @@
 #' 
 #' @export
 #' 
-sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
+sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq, ignore.gen.model = FALSE) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -65,9 +65,7 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
     
     
   ## Borrowed from simFounderSnps
-  if (is.numeric(n.str)) 
-    n.str <- as.character(n.str)
-  
+  n.str <- as.character(n.str)
   n.str <- as.numeric(match.arg(n.str))
   
   # Check if pat.freq is called
@@ -151,8 +149,9 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq) {
     geno <- haploid
      
   }
+
   
   # Create the pop object and return
-  create_pop(genome = genome, geno = geno)
+  create_pop(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model)
 
 } # Close the function

@@ -4,7 +4,7 @@
 \alias{sim_family}
 \title{Simulate a family from a pedigree}
 \usage{
-sim_family(genome, pedigree, founder.pop, ...)
+sim_family(genome, pedigree, founder.pop, ignore.gen.model, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -15,6 +15,8 @@ Use \code{\link{sim_pedigree}} to generate.}
 \item{founder.pop}{An object of class \code{pop} with the geno information for
 the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
 object.}
+
+\item{ignore.gen.model}{Logical - should the gene model be ignored?}
 }
 \value{
 An object of class \code{pop}.

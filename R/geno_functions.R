@@ -6,12 +6,14 @@
 #' the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
 #' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
 #' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
+#' @param ignore.gen.model Logical - should the genetic model be ignored when
+#' checking the matrix of genotypes?
 #' 
 #' @importFrom abind abind
 #' 
 #' @export
 #' 
-check_geno <- function(genome, geno) {
+check_geno <- function(genome, geno, ignore.gen.model = FALSE) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -51,8 +53,15 @@ check_geno <- function(genome, geno) {
       return(FALSE)
     }
     
+    # Get the marker names, but include QTL if the gene model should be ignored.
+    if (ignore.gen.model) {
+      genome_markers <- markernames(genome, include.qtl = TRUE)
+    } else {
+      genome_markers <- markernames(genome, include.qtl = FALSE)
+    }
+    
     # Are the marker names consistent with the genome?
-    if (!all(markernames(genome) %in% markers)) {
+    if (!all(genome_markers %in% markers)) {
       warning("The marker names in the genome are not consistent with those in the geno input.") 
       return(FALSE)
     }
@@ -105,8 +114,15 @@ check_geno <- function(genome, geno) {
       return(FALSE)
     }
     
+    # Get the marker names, but include QTL if the gene model should be ignored.
+    if (ignore.gen.model) {
+      genome_markers <- markernames(genome, include.qtl = TRUE)
+    } else {
+      genome_markers <- markernames(genome, include.qtl = FALSE)
+    }
+    
     # Are the marker names consistent with the genome?
-    if (!all(markernames(genome, include.qtl = TRUE) %in% markers)) {
+    if (!all(genome_markers %in% markers)) {
       warning("The marker names in the genome are not consistent with those in the geno input.") 
       return(FALSE)
     }
@@ -128,16 +144,17 @@ check_geno <- function(genome, geno) {
 #' @param geno Genotype data on a population to phenotype. Must be a matrix of 
 #' dimensions \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, 
 #' or a list of such matrices.
+#' @param ignore.gen.model Logical - should the genetic model be ignored?
 #' 
 #' @return 
 #' A list of geno matrices, split by chromosome.
 #' 
 #' @export
 #' 
-split_geno <- function(genome, geno) {
+split_geno <- function(genome, geno, ignore.gen.model = FALSE) {
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = geno))
+  if (!check_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model))
     stop("The geno did not pass. See warning for reason.")
   
   # If the geno input is a list, recombine

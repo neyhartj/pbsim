@@ -13,12 +13,14 @@ nind <- function(pop) {
   if (!inherits(pop, "pop"))
     stop("The input 'pop' must be of class 'pop'.")
   
-  # Does the pop object have genotypic values
-  if (is.null(pop$geno_val))
-    stop("The 'pop' object must have the data.frame of genotypic values")
-  
-  # Number of rows in the genotypic value matrix
-  nrow(pop$geno_val)
+  # Determine the individuals from the genotype data
+  nind_count <- sapply(X = pop$geno, nrow)
+  # Are these all equal?
+  if (length(unique(nind_count)) > 1)
+    stop ("The number of individuals in the population is uneven. Please check.")
+
+  # Number of rows in the genotype matrix
+  unique(nind_count)
   
 } # Close function
 
@@ -38,12 +40,14 @@ indnames <- function(pop) {
   if (!inherits(pop, "pop"))
     stop("The input 'pop' must be of class 'pop'.")
   
-  # Does the pop object have genotypic values
-  if (is.null(pop$geno_val))
-    stop("The 'pop' object must have the data.frame of genotypic values")
+  # Determine the individuals from the genotype data
+  nind_count <- sapply(X = pop$geno, nrow)
+  # Are these all equal?
+  if (length(unique(nind_count)) > 1)
+    stop ("The number of individuals in the population is uneven. Please check.")
   
-  # Return the individual names from the genotypic value df
-  pop$geno_val$ind
+  # Return the row names
+  row.names(pop$geno[[1]])
   
 } # Close function
 
