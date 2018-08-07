@@ -257,7 +257,18 @@ sim_family <- function(genome, pedigree, founder.pop, ignore.gen.model = FALSE, 
   }
     
   # Create the pop
-  create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
+  pop1 <- create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
+  
+  # Add pedigree information to the family
+  pedigree1 <- subset(pedigree, gen %in% c(min(gen), max(gen)))
+  pedigree1$id[pedigree$gen == 0] <- c(cross$parent1, cross$parent2)
+  pedigree1$id[pedigree$gen != 0] <- indnames(fam)
+  pedigree1$mom <- ifelse(pedigree1$mom == 0, NA, pedigree1$id[pedigree1$mom])
+  pedigree1$dad <- ifelse(pedigree1$dad == 0, NA, pedigree1$id[pedigree1$dad])
+  
+  pop1$pedigree <- pedigree1
+  
+  return(pop1)
   
 } # Close the function
 
@@ -362,18 +373,20 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   if (!all(unique(unlist(crossing.block)) %in% indnames(founder.pop)))
     stop("Not all of the parents in the crossing block are in the 'founder.pop'.")
   
-  # Simulate families for each cross
-  fam_cb <- crossing.block %>% 
-    # Add family number
-    mutate(fam_num = row_number()) %>%
-    by_row(function(cross) {
-      founder_geno <- subset_pop(pop = founder.pop, individual = c(cross$parent1, cross$parent2))
-      sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                 family.num = cross$fam_num, ... = ...) }, .to = "fam")
+  fam_cb <- vector("list", nrow(crossing.block))
   
+  # Seq along the crossing block
+  for (i in seq_along(fam_cb)) {
+    
+    cross <- crossing.block[i,]
+    founder_geno <- subset_pop(pop = founder.pop, individual = c(cross$parent1, cross$parent2))
+    fam_cb[[i]] <- sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
+                      family.num = i, cycle.num = cycle.num)
+    
+  }
 
   # Combine the populations and return
-  combine_pop(pop_list = fam_cb$fam)
+  combine_pop(pop_list = fam_cb)
 
 } # Close the function
   

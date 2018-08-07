@@ -23,6 +23,6 @@ Imports:
 Suggests: knitr,
     rmarkdown
 Remotes: 
-    github::kbroman/simcross
+    github::kbroman/simcross,
     github::cran/hypred
 VignetteBuilder: knitr

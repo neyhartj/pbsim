@@ -4,7 +4,7 @@
 \alias{sim_family}
 \title{Simulate a family from a pedigree}
 \usage{
-sim_family(genome, pedigree, founder.pop, ignore.gen.model, ...)
+sim_family(genome, pedigree, founder.pop, ignore.gen.model = FALSE, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

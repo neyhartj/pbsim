@@ -220,6 +220,9 @@ combine_pop <- function(pop_list) {
   # Combine
   new_pop$geno <- pmap(geno_list, rbind)
   
+  # Combine pedigree information
+  new_pop$pedigree <- do.call("rbind", lapply(pop_list, "[[", "pedigree"))
+  
   # Combine genotypic values
   new_pop$geno_val <- do.call("rbind", lapply(pop_list, "[[", "geno_val"))
 
