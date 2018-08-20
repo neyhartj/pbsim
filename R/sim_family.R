@@ -168,8 +168,7 @@ sim_family <- function(genome, pedigree, founder.pop, ignore.gen.model = FALSE, 
     } else {
       
       # Otherwise use sim.cross
-      cross_sim <- qtl::sim.cross(map = genome$map, n.ind = length(final_id), type = "riself", 
-                                  m = m, p = p)
+      cross_sim <- sim.cross(map = genome$map, n.ind = length(final_id), type = "riself", m = m, p = p)
       
       # Extract progeny genos
       prog_genos <- lapply(X = cross_sim$geno, FUN = function(geno_chr) 
@@ -257,18 +256,8 @@ sim_family <- function(genome, pedigree, founder.pop, ignore.gen.model = FALSE, 
   }
     
   # Create the pop
-  pop1 <- create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
-  
-  # Add pedigree information to the family
-  pedigree1 <- subset(pedigree, gen %in% c(min(gen), max(gen)))
-  pedigree1$id[pedigree$gen == 0] <- c(cross$parent1, cross$parent2)
-  pedigree1$id[pedigree$gen != 0] <- indnames(fam)
-  pedigree1$mom <- ifelse(pedigree1$mom == 0, NA, pedigree1$id[pedigree1$mom])
-  pedigree1$dad <- ifelse(pedigree1$dad == 0, NA, pedigree1$id[pedigree1$dad])
-  
-  pop1$pedigree <- pedigree1
-  
-  return(pop1)
+  create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
+
   
 } # Close the function
 
@@ -380,10 +369,22 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
     
     cross <- crossing.block[i,]
     founder_geno <- subset_pop(pop = founder.pop, individual = c(cross$parent1, cross$parent2))
-    fam_cb[[i]] <- sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                      family.num = i, cycle.num = cycle.num)
+    fam <- sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
+                      family.num = i, ... = ...)
+    
+    # Add pedigree information to the family
+    pedigree1 <- subset(pedigree, gen %in% c(min(gen), max(gen)))
+    pedigree1$id[pedigree1$gen == 0] <- c(cross$parent1, cross$parent2)
+    pedigree1$id[pedigree1$gen != 0] <- indnames(fam)
+    pedigree1$mom <- ifelse(pedigree1$mom == 0, NA, pedigree1$id[pedigree1$mom])
+    pedigree1$dad <- ifelse(pedigree1$dad == 0, NA, pedigree1$id[pedigree1$dad])
+    
+    fam$pedigree <- pedigree1
+    
+    fam_cb[[i]] <- fam
     
   }
+
 
   # Combine the populations and return
   combine_pop(pop_list = fam_cb)
