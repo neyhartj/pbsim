@@ -155,3 +155,157 @@ sim_crossing_block <- function(parents, second.parents, n.crosses, scheme = c("r
 
 
 } # Close the function
+
+
+
+#' Calculate the expected genetic variance in families from a crossing block
+#' 
+#' 
+#' @description 
+#' Calculates the expected genetic variance in a cross or crosses using a pedigree
+#' and a crossing block.
+#' 
+#' @param genome An object of class \code{genome}.
+#' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
+#' Use \code{\link{sim_pedigree}} to generate.
+#' @param founder.pop An object of class \code{pop} with the geno information for
+#' the parents. Additional individuals can be present in \code{parent_pop}. They
+#' will be filtered according to the parents in the \code{crossing.block}.
+#' @param crossing.block A crossing block detailing the crosses to make. Must be a
+#' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
+#' second gives the name of parent 2. See \code{\link{sim_crossing.block}}.
+#' 
+#' 
+#' @importFrom qtl mf.h
+#' @importFrom simcross check_pedigree
+#' @importFrom Matrix .bdiag
+#' 
+#' @export
+#' 
+calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
+  
+  # Error handling
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Check the pedigree
+  if (!check_pedigree(pedigree, ignore_sex = TRUE))
+    stop("The pedigree is not formatted correctly.")
+  
+  # Check the crossing block
+  if (ncol(crossing.block) != 2) {
+    stop("The crossing block should have two columns.")
+  } else {
+    crossing.block <- as.data.frame(crossing.block)
+  }
+  
+  # founder.pop needs to be a pop object
+  if (!inherits(founder.pop, "pop"))
+    stop("The input 'founder.pop' must be of class 'pop'")
+  
+  # Check the genome and geno
+  if (!check_geno(genome = genome, geno = founder.pop$geno))
+    stop("The geno did not pass. See warning for reason.")
+  
+  
+  ## Calculate the expected genetic variance
+  
+  # First we need to know the expected inbreeding coefficient. This will be added to 1 to determine
+  # the coefficient to multiply by the genetic variance
+  expF <- if (attr(pedigree, "selfing") == "partial") {
+    1 - (0.5^(max(pedigree$gen) - 2))
+  } else {1}
+  
+  ## What are the expected allele frequencies in the population?
+  ## Is there any backcrossing?
+  mom_ped <- pedigree[pedigree$mom == 1,]
+  dad_ped <- pedigree[pedigree$mom == 2,]
+  
+  mom_dist_gen <- length(unique(mom_ped$gen))
+  dad_dist_gen <- length(unique(dad_ped$gen))
+  
+  max_bc_gen <- pmax(mom_dist_gen, dad_dist_gen) - 1
+  
+  # The expected frequency of the minor allele is 0.5 ^ n_bc_gen + 1
+  exp_q <- 0.5^(max_bc_gen + 1)
+  exp_p <- 1 - exp_q
+  
+  # Get the QTL information
+  qtl_info <- pull_qtl(genome)
+  qtl_info <- qtl_info[qtl_info$add_eff != 0,,drop = FALSE]
+
+  # Get the map and genotypes of only the QTL
+  qtl_geno <- pull_genotype(genome = genome, geno = founder.pop$geno, loci = qtl_info$qtl_name) - 1
+  
+  ## Calculate the expected genetic variance at each QTL, independent of other QTL
+  ## Then sum
+  qtl_info$exp_var <- 2 * exp_p * exp_q * qtl_info$add_eff^2
+  # Split by chromosome
+  qtl_info_split <- split(qtl_info, qtl_info$chr)
+
+  
+  ## Calculate the expected covariance between QTL
+  qtl_covar <- lapply(X = qtl_info_split, FUN = function(qtl_chr) {
+    d <- as.matrix(dist(qtl_chr$pos))
+    dimnames(d) <- list(qtl_chr$qtl_name, qtl_chr$qtl_name)
+    
+    # Calculate pairwise D (see Zhong and Jannink, 2007)
+    # First convert cM to recombination fraction
+    c <- qtl:::mf.h(d)
+    D <- ((1 - (2 * c)) / (1 + (2 * c)))
+    # The diagonals are 0
+    diag(D) <- 0
+    
+    # Calculate the pairwise product of all QTL effects
+    qtl_crossprod <- crossprod(t(qtl_chr$add_eff))
+    dimnames(qtl_crossprod) <- dimnames(d)
+    
+    # The covariance is the QTL effect product multiplied by the expected D
+    qtl_crossprod * D
+
+  })
+  
+  # Combine into a block diagonal, since the covariance between QTL on different chromosomes
+  # is expected to be 0
+  Cov <- .bdiag(qtl_covar)
+  dimnames(Cov) <- list(qtl_info$qtl_name, qtl_info$qtl_name)
+  
+  ## Now we iterate over the parent pairs to determine the QTL that are segregating
+  
+  ## Add columns to the crossing.block for exp mu and exp varG
+  crossing.block$exp_mu <- NA
+  crossing.block$exp_var <- NA
+  
+  # Iterate over the crossing block
+  for (j in seq(nrow(crossing.block))) {
+    
+    pars <- as.character(crossing.block[j,1:2])
+    qtl_means <- colMeans(qtl_geno[pars,,drop = FALSE])
+    poly_qtl <- names(qtl_means)[qtl_means == 0]
+    
+    # Get the expected variance from these QTL
+    exp_var1 <- qtl_info$exp_var[qtl_info$qtl_name %in% poly_qtl]
+    exp_covar1 <- as.matrix(Cov[poly_qtl, poly_qtl])
+    
+    # The expected variance is the sum of the variances at the polymorphic QTL, plus 2 times
+    # the expected covariance between all polymorphic QTL
+    exp_var_j <- sum(exp_var1) + (2 * sum(exp_covar1[upper.tri(exp_covar1)]))
+    exp_var_j <- (1 + expF) * exp_var_j
+    
+    # The expected mu is simply the mean of the genotypic values of the two parents
+    exp_mu_j <- colMeans(founder.pop$geno_val[founder.pop$geno_val$ind %in% pars,-1,drop = F])
+  
+    ## Add to crossing.block
+    crossing.block$exp_mu[j] <- exp_mu_j
+    crossing.block$exp_var[j] <- exp_var_j
+    
+  }
+  
+  # Return the crossing block
+  return(crossing.block)
+  
+}
+  
+  
+  
+  

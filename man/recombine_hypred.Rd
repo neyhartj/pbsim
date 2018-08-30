@@ -4,8 +4,8 @@
 \alias{recombine_hypred}
 \title{Simulate recombination using hypred}
 \usage{
-recombine_hypred(genome, haploids, mutate = FALSE, mutation.rate.snp = 0,
-  mutation.rate.qtl = 0)
+recombine_hypred(genome, haploids, mutate = FALSE,
+  mutation.rate.snp = 0, mutation.rate.qtl = 0)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

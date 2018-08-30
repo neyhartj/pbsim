@@ -4,8 +4,8 @@
 \alias{select_pop}
 \title{Make selections from a population}
 \usage{
-select_pop(pop, intensity = 0.1, index, type = c("phenotypic", "genomic",
-  "random"))
+select_pop(pop, intensity = 0.1, index, type = c("phenotypic",
+  "genomic", "random"))
 }
 \arguments{
 \item{pop}{An object of class \code{pop}.}

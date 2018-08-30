@@ -2,7 +2,7 @@
 % Please edit documentation in R/prediction.R
 \name{pred_mar_eff}
 \alias{pred_mar_eff}
-\title{Predict marker effects in a training population#'}
+\title{Predict marker effects in a training population}
 \usage{
 pred_mar_eff(genome, training.pop, method = "RRBLUP")
 }
@@ -19,7 +19,7 @@ pred_mar_eff(genome, training.pop, method = "RRBLUP")
 The \code{training.pop} with predicted marker effects.
 }
 \description{
-Predict marker effects in a training population#'
+Predict marker effects in a training population
 }
 \details{
 The \code{training.pop} must have phenotypic values associated with each entry.

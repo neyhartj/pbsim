@@ -4,8 +4,8 @@
 \alias{sim_crossing_block}
 \title{Create a crossing block from a vector of parents}
 \usage{
-sim_crossing_block(parents, second.parents, n.crosses, scheme = c("random",
-  "chain"), use.parents.once = FALSE)
+sim_crossing_block(parents, second.parents, n.crosses,
+  scheme = c("random", "chain"), use.parents.once = FALSE)
 }
 \arguments{
 \item{parents}{A \code{character} of line names to use as parents. If

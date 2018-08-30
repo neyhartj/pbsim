@@ -1,4 +1,5 @@
-#' Predict marker effects in a training population#' 
+#' Predict marker effects in a training population
+#' 
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param training.pop An object of class \code{pop} with the elements \code{geno} and 

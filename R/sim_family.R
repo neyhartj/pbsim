@@ -335,7 +335,7 @@ sim_family <- function(genome, pedigree, founder.pop, ignore.gen.model = FALSE, 
 #' 
 sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   
-  # Error habdling
+  # Error handling
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
