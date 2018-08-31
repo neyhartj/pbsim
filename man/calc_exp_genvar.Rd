@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_crossing_block.R
 \name{calc_exp_genvar}
 \alias{calc_exp_genvar}
-\title{Calculate the expected genetic variance and correlation in families}
+\title{Calculate the expected genetic variance in simulated families}
 \usage{
 calc_exp_genvar(genome, pedigree, founder.pop, crossing.block)
 }
@@ -22,4 +22,45 @@ second gives the name of parent 2. See \code{\link{sim_crossing.block}}.}
 }
 \description{
 Calculates the expected genetic variance of a cross, assuming complete selfing.
+}
+\examples{
+
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+
+# Simulate the genotypes for 8 founders
+founder.pop <- sim_founders(genome = genome, n.str = 8)
+
+# Generate a crossing block with 5 crosses
+cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
+
+# Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+
+calc_exp_genvar(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                crossing.block = cb)
+                
+
+## If two traits are present, the genetic correlation is calculated
+# Simulate two quantitative traits influenced by 50 pleiotropic QTL
+qtl.model <- replicate(2, matrix(NA, 50, 4), simplify = FALSE)
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, corr = 0.99, 
+                              prob.corr = cbind(0, 1), add.dist = "normal")
+
+# Simulate the genotypes for 8 founders
+founder.pop <- sim_founders(genome = genome, n.str = 8)
+
+calc_exp_genvar(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                crossing.block = cb)
+
+
+
 }
