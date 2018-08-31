@@ -273,7 +273,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' Generates a genetic model for two or more traits with desired genetic correlation.
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param qtl.model  A matrix specifying the QTL model. See \code{\link{pbsim}[sim_gen_model]}.
+#' @param qtl.model  A matrix specifying the QTL model. See \code{\link[pbsim]{sim_gen_model}}.
 #' If the qtl.model matrices are NA, the two traits must have the same number of QTL.
 #' @param corr The desired genetic correlation if QTL are to be drawn randomly.
 #' May be positive or negative. See \code{Details} regarding the multivariate 
@@ -324,6 +324,19 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' }
 #' 
 #' @examples 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate two traits that are completely pleiotropy and influenced by 50 QTL
+#' qtl.model <- replicate(n = 2, matrix(NA, 50, 4), simplify = FALSE)
+#' genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
+#'                               prob.corr = cbind(0, 1), add.dist = "geometric")
+#' 
+#' 
+#' 
 #' # Load some historic data
 #' data("s2_cap_haploid")
 #' data("s2_snp_info")

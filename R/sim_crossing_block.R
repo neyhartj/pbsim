@@ -158,12 +158,11 @@ sim_crossing_block <- function(parents, second.parents, n.crosses, scheme = c("r
 
 
 
-#' Calculate the expected genetic variance in families from a crossing block
+#' Calculate the expected genetic variance and correlation in families
 #' 
 #' 
 #' @description 
-#' Calculates the expected genetic variance in a cross or crosses using a pedigree
-#' and a crossing block.
+#' Calculates the expected genetic variance of a cross, assuming complete selfing.
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param pedigree A \code{pedigree} detailing the scheme to develop the family.
@@ -210,11 +209,6 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   
   ## Calculate the expected genetic variance
   
-  # First we need to know the expected inbreeding coefficient. This will be added to 1 to determine
-  # the coefficient to multiply by the genetic variance
-  expF <- if (attr(pedigree, "selfing") == "partial") {
-    1 - (0.5^(max(pedigree$gen) - 2))
-  } else {1}
   
   ## What are the expected allele frequencies in the population?
   ## Is there any backcrossing?
@@ -237,9 +231,9 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   # Get the map and genotypes of only the QTL
   qtl_geno <- pull_genotype(genome = genome, geno = founder.pop$geno, loci = qtl_info$qtl_name) - 1
   
-  ## Calculate the expected genetic variance at each QTL, independent of other QTL
+  ## Calculate the expected genetic variance and covariance of QTL
   ## Then sum
-  qtl_info$exp_var <- 2 * exp_p * exp_q * qtl_info$add_eff^2
+  qtl_info$exp_var <- 4 * exp_p * exp_q * qtl_info$add_eff^2
   # Split by chromosome
   qtl_info_split <- split(qtl_info, qtl_info$chr)
 
@@ -280,17 +274,20 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   for (j in seq(nrow(crossing.block))) {
     
     pars <- as.character(crossing.block[j,1:2])
-    qtl_means <- colMeans(qtl_geno[pars,,drop = FALSE])
+    par_qtl_geno <- qtl_geno[pars,,drop = FALSE]
+    qtl_means <- colMeans(par_qtl_geno)
     poly_qtl <- names(qtl_means)[qtl_means == 0]
+    # Get the marker states for parent 1 - use this to determine phase
+    poly_qtl_geno_par1 <- par_qtl_geno[1, poly_qtl, drop = F]
     
     # Get the expected variance from these QTL
     exp_var1 <- qtl_info$exp_var[qtl_info$qtl_name %in% poly_qtl]
-    exp_covar1 <- as.matrix(Cov[poly_qtl, poly_qtl])
+    # Use the parent1 QTL states to adjust the covariance for coupling/repulsion linkage
+    exp_covar1 <- as.matrix(Cov[poly_qtl, poly_qtl]) * crossprod(poly_qtl_geno_par1)
     
     # The expected variance is the sum of the variances at the polymorphic QTL, plus 2 times
     # the expected covariance between all polymorphic QTL
     exp_var_j <- sum(exp_var1) + (2 * sum(exp_covar1[upper.tri(exp_covar1)]))
-    exp_var_j <- (1 + expF) * exp_var_j
     
     # The expected mu is simply the mean of the genotypic values of the two parents
     exp_mu_j <- colMeans(founder.pop$geno_val[founder.pop$geno_val$ind %in% pars,-1,drop = F])
@@ -307,5 +304,6 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
 }
   
   
+
   
   

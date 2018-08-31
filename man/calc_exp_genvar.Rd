@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_crossing_block.R
 \name{calc_exp_genvar}
 \alias{calc_exp_genvar}
-\title{Calculate the expected genetic variance in families from a crossing block}
+\title{Calculate the expected genetic variance and correlation in families}
 \usage{
 calc_exp_genvar(genome, pedigree, founder.pop, crossing.block)
 }
@@ -21,6 +21,5 @@ will be filtered according to the parents in the \code{crossing.block}.}
 second gives the name of parent 2. See \code{\link{sim_crossing.block}}.}
 }
 \description{
-Calculates the expected genetic variance in a cross or crosses using a pedigree
-and a crossing block.
+Calculates the expected genetic variance of a cross, assuming complete selfing.
 }
