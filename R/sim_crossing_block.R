@@ -270,10 +270,10 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   exp_q <- 0.5^(max_bc_gen + 1)
   exp_p <- 1 - exp_q
   
-  # Get the QTL information
+  # Get the QTL information - drop unused levels
   qtl_info <- pull_qtl(genome, unique = FALSE)
   # Filter out QTL with no additive effect
-  qtl_info <- qtl_info[qtl_info$add_eff != 0,,drop = FALSE]
+  qtl_info <- droplevels(qtl_info[qtl_info$add_eff != 0,,drop = FALSE])
   # Split by trait
   qtl_info_split <- split(qtl_info, qtl_info$trait)
   
