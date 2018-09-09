@@ -30,31 +30,36 @@
 #' 
 #' @examples 
 #' 
-#' # Load historic data
-#' data("s2_cap_genos")
-#' data("s2_snp_info")
+#' \dontrun{
 #' 
-#' # Create a genome with genetic architecture
-#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' # Use data from the PopVar package
+#' library(PopVar)
+#' data("think_barley")
 #' 
-#' genome <- sim_genome(map = map)
+#' # Format the map correctly and simulate a genome
+#' map_in <- map.in_ex[,-1]
+#' row.names(map_in) <- map.in_ex$mkr
+#' genome <- sim_genome(map = table_to_map(map_in))
 #' 
-#' # Simulate a a trait with 15 QTL
-#' qtl.model <- matrix(nrow = 15, ncol = 4)
+#' genos <- apply(X = G.in_ex[-1,-1], MARGIN = 2, FUN = as.numeric)
+#' dimnames(genos) <- list(as.character(G.in_ex$V1[-1]), as.character(unlist(G.in_ex[1,-1])))
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
+#' # Impute with the rounded mean
+#' genos1 <- apply(X = genos, MARGIN = 2, FUN = function(snp) {
+#'   mean <- ifelse(mean(snp, na.rm = T) < 0, -1, 1)
+#'   snp[is.na(snp)] <- mean
+#'   return(snp) })
 #' 
-#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
+#' ## Create a population without a genetic model
+#' pop <- create_pop(genome = genome, geno = genos1 + 1, ignore.gen.model = T)
 #' 
+#' ## Create a genetic model with 15 QTL
+#' qtl.model <- matrix(NA, ncol = 4, nrow = 15)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, add.dist = "geometric")
 #' 
-#' ## Use haploid data and a 'hypred' genome
-#' data("s2_cap_haploid")
+#' pop <- create_pop(genome = genome, geno = genos1 + 1)
 #' 
-#' genome <- sim_genome(map = map, type = "hypred")
-#' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
-#' 
-#' pop <- create_pop(genome = genome, geno = s2_cap_haploid)
+#' }
 #' 
 #' 
 #' @importFrom abind abind

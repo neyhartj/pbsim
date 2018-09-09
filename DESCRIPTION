@@ -19,8 +19,13 @@ Imports:
     purrr,
     abind,
     rrBLUP,
+    Matrix,
+    purrrlyr,
+    methods,
+    hypred,
     simcross
-Suggests: knitr,
+Suggests: 
+    knitr,
     rmarkdown
 Remotes: 
     github::kbroman/simcross,

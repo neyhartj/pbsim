@@ -4,7 +4,7 @@
 \alias{find_proxmarkers}
 \title{Find the position of markers near a locus}
 \usage{
-find_proxmarkers(genome, marker, ...)
+find_proxmarkers(genome, marker, ..., include.qtl = FALSE)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -15,6 +15,11 @@ find_proxmarkers(genome, marker, ...)
 can be specified using the \code{min.dist} (returns markers at \code{min.dist}
 from \code{marker}) and \code{max.dist} (returns markers no more than \code{min.dist}
 from \code{marker}).}
+
+\item{include.qtl}{Logical. Should QTL be included in the results? If FALSE, the genome
+should have a genetic model.}
+
+\item{ignore.gen.model}{Logical - should the gene model be ignored?}
 }
 \description{
 Finds the position of markers near a particular locus. By default, the function
@@ -30,6 +35,8 @@ len <- c(120, 130, 140)
 genome <- sim_genome(len, n.mar)
 
 # Sample marker names to lookup
-sample_markers <- sample(markernames(genome), size = 3)
+sample_markers <- sample(markernames(genome, include.qtl = T), size = 3)
+
+find_proxmarkers(genome = genome, marker = sample_markers, include.qtl = T)
 
 }

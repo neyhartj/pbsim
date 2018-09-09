@@ -573,10 +573,13 @@ find_markerpos <- function(genome, marker) {
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param marker See \code{\link[qtl]{find.markerpos}}.
+#' @param ignore.gen.model Logical - should the gene model be ignored?
 #' @param ... Additional arguments. Markers within a position range of \code{marker}
 #' can be specified using the \code{min.dist} (returns markers at \code{min.dist}
 #' from \code{marker}) and \code{max.dist} (returns markers no more than \code{min.dist}
 #' from \code{marker}).
+#' @param include.qtl Logical. Should QTL be included in the results? If FALSE, the genome
+#' should have a genetic model.
 #' 
 #' @examples 
 #' 
@@ -587,7 +590,9 @@ find_markerpos <- function(genome, marker) {
 #' genome <- sim_genome(len, n.mar)
 #' 
 #' # Sample marker names to lookup
-#' sample_markers <- sample(markernames(genome), size = 3)
+#' sample_markers <- sample(markernames(genome, include.qtl = T), size = 3)
+#' 
+#' find_proxmarkers(genome = genome, marker = sample_markers, include.qtl = T)
 #' 
 #' @importFrom qtl map2table
 #' @importFrom qtl sim.cross
@@ -596,7 +601,7 @@ find_markerpos <- function(genome, marker) {
 #' 
 #' @export
 #' 
-find_proxmarkers <- function(genome, marker, ...) {
+find_proxmarkers <- function(genome, marker, ..., include.qtl = FALSE) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -618,28 +623,32 @@ find_proxmarkers <- function(genome, marker, ...) {
   # Find the position of the marker
   marker_pos <- find_markerpos(genome = genome, marker = marker)
   
+  # Chromosome lengths
+  chr_len <- chrlen(genome)
+  
   ## Are min.dist and max.dist both NULL?
   # If so, return flanking markers
   if (all(is.null(min.dist), is.null(max.dist))) {
     
-    # Iterate over the markers
-    flanking_pos <- marker_pos %>% 
-      mutate(marker = row.names(.)) %>% 
-      group_by(marker) %>% 
-      do({
-        
-        # Markers in the chr
-        chr_markers <- markernames(genome, chr = .$chr)
-        # Find the position of the marker on the map      
-        map_ind <- match(.$marker, chr_markers)
-        # Find the position of the marker to the left and right
-        left_marker <- ifelse(map_ind == 1, NA, chr_markers[map_ind - 1])
-        right_marker <- chr_markers[map_ind + 1]
-        # Return data.frame
-        data.frame(left = left_marker, right = right_marker, stringsAsFactors = FALSE)
-        
-      }) %>%
-      as.data.frame()
+    flanking_pos <- list()
+    
+    for (i in seq(nrow(marker_pos))) {
+      
+      mkr <- marker_pos[i,,drop = FALSE]
+      
+      # Markers in the chr
+      chr_markers <- markernames(genome, chr = mkr$chr, include.qtl = include.qtl)
+      # Find the position of the marker on the map      
+      map_ind <- match(row.names(mkr), chr_markers)
+      # Find the position of the marker to the left and right
+      left_marker <- ifelse(map_ind == 1, NA, chr_markers[map_ind - 1])
+      right_marker <- chr_markers[map_ind + 1]
+      # Return data.frame
+      flanking_pos[[i]] <- data.frame(left = left_marker, right = right_marker, stringsAsFactors = FALSE)
+      
+    }
+    
+    flanking_pos <- cbind(marker_pos, do.call("rbind", flanking_pos))
     
     return(flanking_pos)
     

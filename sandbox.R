@@ -451,3 +451,46 @@ svd_df <- K_svd$rotation %>%
   mutate(family = str_extract(line_name, "[0-9]{4,}"))
 
 qplot(x = PC2, y = PC3, color = family, data = svd_df)
+
+
+
+
+## Test the expectation of genetic correlation in bi-parental populations
+library(tidyverse)
+library(pbsim)
+
+example("calc_exp_genvar")
+
+ped <- sim_pedigree(n.ind = 500, n.selfgen = Inf)
+
+qtl.model <- replicate(2, matrix(NA, 50, 4), simplify = FALSE)
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, corr = 0.5, 
+                              prob.corr = cbind(0, 1), add.dist = "normal")
+
+# Simulate the genotypes for 8 founders
+founder.pop <- sim_pop(genome = genome, n.ind = 25)
+
+cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 50)
+
+expected <- calc_exp_genvar(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                            crossing.block = cb) %>%
+  distinct(parent1, parent2, exp_corG)
+
+## Create bi-parental RIL families using this crossing block
+families <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, crossing.block = cb)
+
+## Calculate the genetic correlation per family
+realized <- families$geno_val %>% 
+  mutate(family = str_extract(ind, "1[0-9]{3}")) %>% 
+  group_by(family) %>% 
+  summarize(gencor = cor(trait1, trait2))
+
+## Plot
+plot(expected$exp_corG, realized$gencor)
+cor(expected$exp_corG, realized$gencor)
+
+
+
+
+
+

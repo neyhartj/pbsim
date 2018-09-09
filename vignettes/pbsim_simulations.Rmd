@@ -9,7 +9,7 @@ vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
-bibliography: C:/Users/Jeff/Documents/Literature/library.bib
+bibliography: C:/Users/jln54/GoogleDrive/Literature/MendeleyLibrary/library.bib
 ---
 
 
