@@ -58,6 +58,7 @@
 #' @importFrom simcross check_pedigree
 #' @importFrom Matrix .bdiag
 #' @importFrom tidyr crossing
+#' @importFrom purrr pmap_dbl
 #' 
 #' @export
 #' 
@@ -150,7 +151,7 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
     
     # Combine into a block diagonal, since the covariance between QTL on different chromosomes
     # is expected to be 0
-    Cov <- .bdiag(qtl_covar)
+    Cov <- as.matrix(.bdiag(qtl_covar))
     dimnames(Cov) <- list(trait_qtl$qtl_name, trait_qtl$qtl_name)
     # Return
     return(Cov)
@@ -193,13 +194,14 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
     
     # Combine into a block diagonal, since the covariance between QTL on different chromosomes
     # is expected to be 0
-    traitCov <- .bdiag(qtl_trait_covariance)
-    dimnames(traitCov) <- list(qtl_info_split[[1]]$qtl_name, qtl_info_split[[2]]$qtl_name)
+    qtl_trait_covariance <- as.matrix(.bdiag(qtl_trait_covariance))
+    dimnames(qtl_trait_covariance) <- list(qtl_info_split[[1]]$qtl_name, qtl_info_split[[2]]$qtl_name)
     
   } else {
-    traitCov <- NULL
+    qtl_trait_covariance <- NULL
     
   }
+  
   
   
   ## Now we iterate over the parent pairs to determine the QTL that are segregating
@@ -212,50 +214,59 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   exp_varG <- list()
   exp_corG <- list()
   
+  
+  
+  ## Pull out the qtl genotypes for each trait
+  qtl_names <- lapply(X = qtl_info_split, FUN = "[[", "qtl_name")
+  qtl_geno <- lapply(X = qtl_names, function(q) pull_genotype(genome = genome, geno = founder.pop$geno, loci = q) - 1)
+  
+  
   # Iterate over the crossing block
   for (j in seq(nrow(crossing.block))) {
     
     pars <- as.character(crossing.block[j,1:2])
     
-    ## Pull out the qtl genotypes for each trait
-    qtl_names <- lapply(X = qtl_info_split, FUN = "[[", "qtl_name")
-    qtl_geno <- lapply(X = qtl_names, pull_genotype, genome = genome, geno = founder.pop$geno)
-    
     ## Get a list of the polymorphic QTL
     poly_qtl_list <- lapply(X = qtl_geno, FUN = function(tr_qtl) {
       
       # Subset the parents
-      par_qtl_geno <- tr_qtl[pars,,drop = FALSE] - 1
+      par_qtl_geno <- tr_qtl[pars,,drop = FALSE]
       qtl_means <- colMeans(par_qtl_geno)
-      poly_qtl <- names(qtl_means)[qtl_means == 0]
-      # Get the marker states for parent 1 - use this to determine phase
-      par_qtl_geno[1, poly_qtl, drop = F]
+      par1_qtl <- par_qtl_geno[1,]
+      
+      t(ifelse(qtl_means == 0, par1_qtl, 0))
+      
+      # poly_qtl <- names(qtl_means)[qtl_means == 0]
+      # # Get the marker states for parent 1 - use this to determine phase
+      # par_qtl_geno[1, poly_qtl, drop = F]
       
     })
     
-    # Iterate over the traits
-    trait_var <- mapply(poly_qtl_list, qtl_covariance, FUN = function(poly_mat, qtl_cov) {
-      
-      poly_qtl <- colnames(poly_mat)
-      exp_covar1 <- as.matrix(qtl_cov)[poly_qtl, poly_qtl] * crossprod(poly_mat)
-      
-      # The expected variance is the sum of the variances at the polymorphic QTL, plus 2 times
-      # the expected covariance between all polymorphic QTL
-      # One can simply sum up the elements in the covariance matrix
-      sum(exp_covar1)
-      
-    })
     
-    if (!is.null(traitCov)) {
+    # Iterate over the traits and calculate individual genetic variance
+    trait_var <- pmap_dbl(list(poly_qtl_list, qtl_covariance), ~sum(crossprod(.x) * .y))
+    
+    
+    # trait_var <- mapply(poly_qtl_list, qtl_covariance, FUN = function(poly_mat, qtl_cov) {
+    #   
+    #   poly_qtl <- colnames(poly_mat)
+    #   exp_covar1 <- qtl_cov[poly_qtl, poly_qtl] * crossprod(poly_mat)
+    #   
+    #   # The expected variance is the sum of the variances at the polymorphic QTL, plus 2 times
+    #   # the expected covariance between all polymorphic QTL
+    #   # One can simply sum up the elements in the covariance matrix
+    #   sum(exp_covar1)
+    #   
+    # })
+    
+    if (!is.null(qtl_trait_covariance)) {
       
-      poly_qtl_names <- lapply(poly_qtl_list, colnames)
+      
       ## Calculate the expected covariance
-      trait_cov <- as.matrix(traitCov)[poly_qtl_names[[1]], poly_qtl_names[[2]]] * crossprod(poly_qtl_list[[1]], poly_qtl_list[[2]])
-      # The covariance is 2 times the sum of this matrix (it is not diagonal)
-      trait_cov1 <- sum(trait_cov)
+      trait_cov <- sum(qtl_trait_covariance * crossprod(poly_qtl_list[[1]], poly_qtl_list[[2]]))
       
       # The expected correlation is calculated using the expected sd and expected cov
-      exp_corG_j <- trait_cov1 / prod(sqrt(trait_var)) 
+      exp_corG_j <- trait_cov / prod(sqrt(trait_var)) 
       exp_corG[[j]] <- rep(exp_corG_j, 2)
       
     }
@@ -418,7 +429,12 @@ pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.bl
     predicted_genvar$exp_mu[i] <- mean(pgvs[pgvs$ind %in% predicted_genvar[i,1:2,drop = T],predicted_genvar$trait[i]])
   }
   
-  names(predicted_genvar)[-1:-3] <- c("pred_mu", "pred_varG", "pred_corG")
+  
+  if (n_traits == 1) {
+    names(predicted_genvar)[-1:-3] <- c("pred_mu", "pred_varG")
+  } else {
+    names(predicted_genvar)[-1:-3] <- c("pred_mu", "pred_varG", "pred_corG")
+  }
   
   # Return 
   return(predicted_genvar)
