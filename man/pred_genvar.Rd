@@ -6,7 +6,7 @@
 \usage{
 pred_genvar(genome, pedigree, training.pop, founder.pop, crossing.block,
   method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"),
-  n.iter = 1200, burn.in = 200, thin = 5, save.at = "")
+  n.iter = 1500, burn.in = 500, thin = 5, save.at = "")
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

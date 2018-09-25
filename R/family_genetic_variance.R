@@ -361,7 +361,7 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
 #' 
 pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.block, 
                         method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), 
-                        n.iter = 1200, burn.in = 200, thin = 5, save.at = "") {
+                        n.iter = 1500, burn.in = 500, thin = 5, save.at = "") {
   
   # Error handling
   if (!inherits(genome, "genome"))
@@ -403,7 +403,7 @@ pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.bl
   if (is.null(training.pop$mar_eff)) {
     
     marker_eff <- pred_mar_eff(genome = genome, training.pop = training.pop, method = method, n.iter = n.iter,
-                               burn.in = burn.in)
+                               burn.in = burn.in, thin = thin, save.at = save.at)
     
   } else {
     marker_eff <- training.pop

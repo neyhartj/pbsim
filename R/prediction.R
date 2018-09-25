@@ -59,8 +59,8 @@
 #' 
 #' @export
 #' 
-pred_mar_eff <- function(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), n.iter = 1200, 
-                         burn.in = 200, thin = 5, save.at = "") {
+pred_mar_eff <- function(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), n.iter = 1500, 
+                         burn.in = 500, thin = 5, save.at = "") {
 
   # Check the populations
   if (!inherits(training.pop, "pop"))
@@ -103,7 +103,7 @@ pred_mar_eff <- function(genome, training.pop, method = c("RRBLUP", "BRR", "Baye
       
       # Solve the mixed model
       solve_out <- BGLR(y = trait, ETA = list(list(X = training_geno, model = method)), nIter = n.iter,
-                        burnIn = burn.in, thin = thin, verbose = FALSE)
+                        burnIn = burn.in, thin = thin, verbose = FALSE, saveAt = save.at)
       
       # Return the marker effects and the probIn parameter
       list(effects = solve_out$ETA[[1]]$b, pi = solve_out$ETA[[1]]$probIn)
@@ -195,7 +195,7 @@ pred_mar_eff <- function(genome, training.pop, method = c("RRBLUP", "BRR", "Baye
 #' @export
 #' 
 pred_geno_val <- function(genome, training.pop, candidate.pop, method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), 
-                          n.iter = 1200, burn.in = 200, thin = 5, save.at = "") {
+                          n.iter = 1500, burn.in = 500, thin = 5, save.at = "") {
   
   # Check the populations
   if (!inherits(training.pop, "pop"))
@@ -253,7 +253,7 @@ pred_geno_val <- function(genome, training.pop, candidate.pop, method = c("RRBLU
         
         # Solve the mixed model
         solve_out <- BGLR(y = trait, ETA = list(list(X = training_geno, model = method)), nIter = n.iter,
-                          burnIn = burn.in, thin = thin, verbose = FALSE)
+                          burnIn = burn.in, thin = thin, verbose = FALSE, saveAt = save.at)
         
         # Return the marker effects and the probIn parameter
         list(effects = solve_out$ETA[[1]]$b, pi = solve_out$ETA[[1]]$probIn)

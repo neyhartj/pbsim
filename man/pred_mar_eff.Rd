@@ -5,7 +5,7 @@
 \title{Predict marker effects in a training population}
 \usage{
 pred_mar_eff(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA",
-  "BL", "BayesB", "BayesC"), n.iter = 1200, burn.in = 200, thin = 5,
+  "BL", "BayesB", "BayesC"), n.iter = 1500, burn.in = 500, thin = 5,
   save.at = "")
 }
 \arguments{
