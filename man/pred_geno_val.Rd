@@ -4,7 +4,9 @@
 \alias{pred_geno_val}
 \title{Predict genotypic values using genomewide markers}
 \usage{
-pred_geno_val(genome, training.pop, candidate.pop, method = "RRBLUP")
+pred_geno_val(genome, training.pop, candidate.pop, method = c("RRBLUP",
+  "BRR", "BayesA", "BL", "BayesB", "BayesC"), n.iter = 1200,
+  burn.in = 200, thin = 5, save.at = "")
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -16,8 +18,14 @@ are present, they are used.}
 \item{candidate.pop}{An object of class \code{pop} with the element \code{geno}.
 Genotypic values are predicted for individuals in this object.}
 
-\item{method}{The statistical method to predict marker effects. Currently only
-\code{"RRBLUP"} is supported.}
+\item{method}{The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+\code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+function is used.}
+
+\item{n.iter, burn.in, thin}{Number of iterations, number of burn-ins, and thinning, respectively. See 
+\code{\link[BGLR]{BGLR}}.}
+
+\item{save.at}{See \code{\link[BGLR]{BGLR}}.}
 }
 \value{
 The \code{candidate.pop} with predicted genotypic values.
@@ -30,9 +38,6 @@ The \code{training.pop} must have phenotypic values associated with each entry.
 The mean phenotype is used as training data in the model. Genotypic data (excluding
 QTL) are used to predict marker effects, which are then used to predict the 
 genotypic value of the individuals in the \code{candidate.pop}.
-
-When solving the mixed model, if \code{method = "RRBLUP"}, marker effects are
-predicted by REML.
 }
 \examples{
 

@@ -4,7 +4,9 @@
 \alias{pred_genvar}
 \title{Predict the genetic variance in prospective crosses}
 \usage{
-pred_genvar(genome, pedigree, training.pop, founder.pop, crossing.block)
+pred_genvar(genome, pedigree, training.pop, founder.pop, crossing.block,
+  method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"),
+  n.iter = 1200, burn.in = 200, thin = 5, save.at = "")
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -22,6 +24,15 @@ will be filtered according to the parents in the \code{crossing.block}.}
 \item{crossing.block}{A crossing block detailing the crosses to make. Must be a
 \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
 second gives the name of parent 2. See \code{\link{sim_crossing.block}}.}
+
+\item{method}{The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+\code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+function is used.}
+
+\item{n.iter, burn.in, thin}{Number of iterations, number of burn-ins, and thinning, respectively. See 
+\code{\link[BGLR]{BGLR}}.}
+
+\item{save.at}{See \code{\link[BGLR]{BGLR}}.}
 }
 \description{
 Uses the expected genetic variance formula and marker effects to predict the

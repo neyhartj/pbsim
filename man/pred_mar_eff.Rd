@@ -4,7 +4,9 @@
 \alias{pred_mar_eff}
 \title{Predict marker effects in a training population}
 \usage{
-pred_mar_eff(genome, training.pop, method = "RRBLUP")
+pred_mar_eff(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA",
+  "BL", "BayesB", "BayesC"), n.iter = 1200, burn.in = 200, thin = 5,
+  save.at = "")
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -12,8 +14,14 @@ pred_mar_eff(genome, training.pop, method = "RRBLUP")
 \item{training.pop}{An object of class \code{pop} with the elements \code{geno} and 
 \code{pheno_val}. This is used as the training population.}
 
-\item{method}{The statistical method to predict marker effects. Currently only
-\code{"RRBLUP"} is supported.}
+\item{method}{The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+\code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+function is used.}
+
+\item{n.iter, burn.in, thin}{Number of iterations, number of burn-ins, and thinning, respectively. See 
+\code{\link[BGLR]{BGLR}}.}
+
+\item{save.at}{See \code{\link[BGLR]{BGLR}}.}
 }
 \value{
 The \code{training.pop} with predicted marker effects.
@@ -25,9 +33,6 @@ Predict marker effects in a training population
 The \code{training.pop} must have phenotypic values associated with each entry.
 The mean phenotype is used as training data in the model. Genotypic data (excluding
 QTL) are used to predict marker effects.
-
-When solving the mixed model, if \code{method = "RRBLUP"}, marker effects are
-predicted by REML.
 }
 \examples{
 
@@ -55,8 +60,8 @@ parents <- indnames(founder_pop)
 cb <- sim_crossing_block(parents = parents, n.crosses = 5)
 
 # Simulate the populations according to the crossing block
-pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, 
-                     crossing_block = cb)
+pop <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder_pop, 
+                     crossing.block = cb)
                      
 # Use the founders as a training population for the progeny
 # Predict marker effects

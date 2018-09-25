@@ -4,16 +4,18 @@
 #' @param genome An object of class \code{genome}.
 #' @param training.pop An object of class \code{pop} with the elements \code{geno} and 
 #' \code{pheno_val}. This is used as the training population.
-#' @param method The statistical method to predict marker effects. Currently only
-#' \code{"RRBLUP"} is supported.
+#' @param method The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+#' \code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+#' function is used.
+#' @param n.iter,burn.in,thin Number of iterations, number of burn-ins, and thinning, respectively. See 
+#' \code{\link[BGLR]{BGLR}}.
+#' @param save.at See \code{\link[BGLR]{BGLR}}.
 #' 
 #' @details 
 #' The \code{training.pop} must have phenotypic values associated with each entry.
 #' The mean phenotype is used as training data in the model. Genotypic data (excluding
 #' QTL) are used to predict marker effects.
 #' 
-#' When solving the mixed model, if \code{method = "RRBLUP"}, marker effects are
-#' predicted by REML.
 #' 
 #' @return 
 #' The \code{training.pop} with predicted marker effects.
@@ -44,19 +46,21 @@
 #' cb <- sim_crossing_block(parents = parents, n.crosses = 5)
 #' 
 #' # Simulate the populations according to the crossing block
-#' pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, 
-#'                      crossing_block = cb)
+#' pop <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder_pop, 
+#'                      crossing.block = cb)
 #'                      
 #' # Use the founders as a training population for the progeny
 #' # Predict marker effects
 #' training.pop <- pred_mar_eff(genome = genome, training.pop = founder_pop)
 #'                      
 #' @importFrom  rrBLUP mixed.solve
+#' @importFrom BGLR BGLR
 #' @import dplyr
 #' 
 #' @export
 #' 
-pred_mar_eff <- function(genome, training.pop, method = "RRBLUP") {
+pred_mar_eff <- function(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), n.iter = 1200, 
+                         burn.in = 200, thin = 5, save.at = "") {
 
   # Check the populations
   if (!inherits(training.pop, "pop"))
@@ -87,12 +91,35 @@ pred_mar_eff <- function(genome, training.pop, method = "RRBLUP") {
       # Solve the mixed model
       solve_out <- mixed.solve(y = trait, Z = training_geno, method = "REML")
       # Pull out marker effects
-      solve_out$u })
+      list(effects = solve_out$u)
+      
+    })
+    
+  } else {
+    
+    ## Use BGLR
+    # Iterate over traits
+    mar_eff <- apply(X = training_pheno, MARGIN = 2, FUN = function(trait) {
+      
+      # Solve the mixed model
+      solve_out <- BGLR(y = trait, ETA = list(list(X = training_geno, model = method)), nIter = n.iter,
+                        burnIn = burn.in, thin = thin, verbose = FALSE)
+      
+      # Return the marker effects and the probIn parameter
+      list(effects = solve_out$ETA[[1]]$b, pi = solve_out$ETA[[1]]$probIn)
+      
+    })
     
   }
+
+  
+  ## Reorganize the marker effects
+  marker_eff <- sapply(X = mar_eff, "[[", "effects")
+  hyperparam <- sapply(X = mar_eff, "[[", "pi")
   
   # Return the TP with the marker effects
-  training.pop$mar_eff <- data.frame(marker = row.names(mar_eff), mar_eff, row.names = NULL, stringsAsFactors = FALSE)
+  training.pop$mar_eff <- data.frame(marker = row.names(marker_eff), marker_eff, row.names = NULL, stringsAsFactors = FALSE)
+  training.pop$mar_eff_meta <- data.frame(param = "pi", t(hyperparam), row.names = NULL, stringsAsFactors = FALSE)
   
   return(training.pop)
   
@@ -108,8 +135,12 @@ pred_mar_eff <- function(genome, training.pop, method = "RRBLUP") {
 #' are present, they are used.
 #' @param candidate.pop An object of class \code{pop} with the element \code{geno}.
 #' Genotypic values are predicted for individuals in this object.
-#' @param method The statistical method to predict marker effects. Currently only
-#' \code{"RRBLUP"} is supported.
+#' @param method The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+#' \code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+#' function is used.
+#' @param n.iter,burn.in,thin Number of iterations, number of burn-ins, and thinning, respectively. See 
+#' \code{\link[BGLR]{BGLR}}.
+#' @param save.at See \code{\link[BGLR]{BGLR}}.
 #' 
 #' @details 
 #' The \code{training.pop} must have phenotypic values associated with each entry.
@@ -117,8 +148,6 @@ pred_mar_eff <- function(genome, training.pop, method = "RRBLUP") {
 #' QTL) are used to predict marker effects, which are then used to predict the 
 #' genotypic value of the individuals in the \code{candidate.pop}.
 #' 
-#' When solving the mixed model, if \code{method = "RRBLUP"}, marker effects are
-#' predicted by REML.
 #' 
 #' @return 
 #' The \code{candidate.pop} with predicted genotypic values.
@@ -160,11 +189,13 @@ pred_mar_eff <- function(genome, training.pop, method = "RRBLUP") {
 #' pop <- pred_geno_val(genome = genome, training.pop = founder_pop, candidate.pop = pop)
 #'                      
 #' @importFrom  rrBLUP mixed.solve
+#' @importFrom BGLR BGLR
 #' @import dplyr
 #' 
 #' @export
 #' 
-pred_geno_val <- function(genome, training.pop, candidate.pop, method = "RRBLUP") {
+pred_geno_val <- function(genome, training.pop, candidate.pop, method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), 
+                          n.iter = 1200, burn.in = 200, thin = 5, save.at = "") {
   
   # Check the populations
   if (!inherits(training.pop, "pop"))
@@ -194,28 +225,11 @@ pred_geno_val <- function(genome, training.pop, candidate.pop, method = "RRBLUP"
   mar_eff <- training.pop$mar_eff
   
   # If marker effects are present, use them
-  if (!is.null(mar_eff)) {
+  if (is.null(mar_eff)) {
     
-    # Make sure all markers are in the candidate geno
-    if (!all(mar_eff$marker %in% colnames(candidate_geno)))
-      stop("Not all markers with predicted marker effects are in the 'candidate.pop'.")
+    # Predict the marker effects
+    mar_eff <- pred_mar_eff(genome = genome, training.pop = training.pop, method = method, n.iter = n.iter, burn.in = burn.in, thin = thin)$mar_eff
     
-    # Convert to matrix
-    mar_eff_mat <- mar_eff %>% 
-      data.frame(row.names = .$marker) %>% 
-      select(-marker) %>% 
-      as.matrix()
-    
-    # Iterate over traits
-    pgv <- apply(X = mar_eff_mat, MARGIN = 2, FUN = function(trait) {
-      
-      # Predict GVs
-      candidate_geno %*% trait })
-    
-  } else {
-    
-    # Predict genotypic values
-  
     # Run by method
     if (method == "RRBLUP") {
       
@@ -231,9 +245,41 @@ pred_geno_val <- function(genome, training.pop, candidate.pop, method = "RRBLUP"
         # Predict GVs
         candidate_geno %*% marker_effects })
       
+    } else {
+      
+      ## Use BGLR
+      # Iterate over traits
+      mar_eff <- apply(X = training_pheno, MARGIN = 2, FUN = function(trait) {
+        
+        # Solve the mixed model
+        solve_out <- BGLR(y = trait, ETA = list(list(X = training_geno, model = method)), nIter = n.iter,
+                          burnIn = burn.in, thin = thin, verbose = FALSE)
+        
+        # Return the marker effects and the probIn parameter
+        list(effects = solve_out$ETA[[1]]$b, pi = solve_out$ETA[[1]]$probIn)
+        
+      })
+      
     }
     
   }
+  
+  # Make sure all markers are in the candidate geno
+  if (!all(mar_eff$marker %in% colnames(candidate_geno)))
+    stop("Not all markers with predicted marker effects are in the 'candidate.pop'.")
+  
+  # Convert to matrix
+  mar_eff_mat <- mar_eff %>% 
+    data.frame(row.names = .$marker) %>% 
+    select(-marker) %>% 
+    as.matrix()
+  
+  # Iterate over traits
+  pgv <- apply(X = mar_eff_mat, MARGIN = 2, FUN = function(trait) {
+    
+    # Predict GVs
+    candidate_geno %*% trait })
+  
   
   # Convert to data.frame
   pgv_df <- data.frame(ind = indnames(candidate.pop), pgv)

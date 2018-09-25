@@ -308,6 +308,12 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
 #' @param crossing.block A crossing block detailing the crosses to make. Must be a
 #' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
 #' second gives the name of parent 2. See \code{\link{sim_crossing.block}}.
+#' @param method The statistical method to predict marker effects. If \code{"RRBLUP"}, the
+#' \code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
+#' function is used.
+#' @param n.iter,burn.in,thin Number of iterations, number of burn-ins, and thinning, respectively. See 
+#' \code{\link[BGLR]{BGLR}}.
+#' @param save.at See \code{\link[BGLR]{BGLR}}.
 #' 
 #' @examples 
 #' 
@@ -353,7 +359,9 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
 #' 
 #' @export
 #' 
-pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.block) {
+pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.block, 
+                        method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), 
+                        n.iter = 1200, burn.in = 200, thin = 5, save.at = "") {
   
   # Error handling
   if (!inherits(genome, "genome"))
@@ -388,11 +396,24 @@ pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.bl
   
   n_traits <- length(genome$gen_model)
   
+  # Check the method
+  method <- match.arg(method)
   
-  ## Predict genotypic values in the founder population
-  founder_pop1 <- pred_geno_val(genome = genome, training.pop = training.pop, candidate.pop = founder.pop)
+  # Predict marker effects - only if the TP does not have them
+  if (is.null(training.pop$mar_eff)) {
+    
+    marker_eff <- pred_mar_eff(genome = genome, training.pop = training.pop, method = method, n.iter = n.iter,
+                               burn.in = burn.in)
+    
+  } else {
+    marker_eff <- training.pop
+    
+  }
+  
+  ## Predict genotypic values in the founder population - this will use the marker effects in the tp
+  founder_pop1 <- pred_geno_val(genome = genome, training.pop = marker_eff, candidate.pop = founder.pop)
   # Predict marker effects
-  marker_eff <- pred_mar_eff(genome = genome, training.pop = training.pop)$mar_eff
+  marker_eff <- marker_eff$mar_eff
   
   ## Find the positions of these markers
   marker_pos <- find_markerpos(genome = genome, marker = marker_eff$marker)
