@@ -77,41 +77,4 @@ genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6,
                               prob.corr = cbind(0, 1), add.dist = "geometric")
 
 
-
-# Load some historic data
-data("s2_cap_haploid")
-data("s2_snp_info")
-
-# Create a genome
-map <- lapply(split(s2_snp_info, s2_snp_info$chrom), 
-              function(chr) structure(chr$cM_pos, names = chr$rs) )
-
-genome <- sim_genome(map = map, type = "hypred")
-
-# Simulate two traits with 30 QTL, 1/3 with pairwise linkage of 0 < x <= 2 cM
-# and 2/3 with pairwise linkage of 2 < x <= 20.
-qtl.model <- replicate(2, matrix(nrow = 30, ncol = 4), simplify = FALSE)
-prob.corr <- cbind(c(2, 20), c(0.333, 0.667))
-
-# Simulate the genetic architecture
-genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, 
-                              geno = s2_cap_haploid, prob.corr = prob.corr,
-                              cor = 0.5, add.dist = "geometric", max.qtl = 30)
-
-pop <- create_pop(genome = genome, geno = s2_cap_haploid)
-
-# Genetic correlation prior to adjustment
-cor(pop$geno_val$trait1, pop$geno_val$trait2)
-
-# Simulate two traits without correlation
-prob.corr <- cbind(50, 1)
-
-# Simulate the genetic architecture
-genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, 
-                              geno = s2_cap_haploid, prob.corr = prob.corr,
-                              corr = 0, add.dist = "geometric", max.qtl = 30)
-
-pop <- create_pop(genome = genome, geno = s2_cap_haploid)
-
-
 }
