@@ -11,6 +11,23 @@
 #' 
 #' @importFrom abind abind
 #' 
+#' @examples 
+#' 
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Randomly generate 15 QTL with additive allelic effects following a
+#' # genometric series
+#' qtl.model <- matrix(nrow = 15, ncol = 4)
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+#' 
+#' # Create a random population
+#' pop <- sim_pop(genome = genome, n.ind = 200)
+#' 
+#' check_geno()
+#' 
 #' @export
 #' 
 check_geno <- function(genome, geno, ignore.gen.model = FALSE) {
@@ -34,11 +51,11 @@ check_geno <- function(genome, geno, ignore.gen.model = FALSE) {
     if (is.list(geno))
       geno <- do.call("cbind", geno)
     
-    # Make sure the genos are coded correctly
-    if (!all(geno %in% c(0, 1, 2))) {
-      warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
-      return(FALSE)
-    }
+    # # Make sure the genos are coded correctly
+    # if (!all(geno %in% c(0, 1, 2))) {
+    #   warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
+    #   return(FALSE)
+    # }
     
     # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
     if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {

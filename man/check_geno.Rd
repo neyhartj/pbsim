@@ -21,3 +21,21 @@ checking the matrix of genotypes?}
 \description{
 Check a matrix of genotypes for completeness
 }
+\examples{
+
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Randomly generate 15 QTL with additive allelic effects following a
+# genometric series
+qtl.model <- matrix(nrow = 15, ncol = 4)
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+
+# Create a random population
+pop <- sim_pop(genome = genome, n.ind = 200)
+
+check_geno()
+
+}
