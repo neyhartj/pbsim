@@ -334,6 +334,12 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' qtl.model <- replicate(n = 2, matrix(NA, 50, 4), simplify = FALSE)
 #' genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
 #'                               prob.corr = cbind(0, 1), add.dist = "geometric")
+#'                               
+#' # Simulate two traits that are controlled by 50 pairs of QTL that are between 20
+#' # and 30 cM.
+#' prob.corr <- rbind(c(20, 0), c(30, 1))
+#' genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
+#'                               prob.corr = prob.corr, add.dist = "geometric")
 #' 
 #' 
 #' @import dplyr
@@ -416,8 +422,7 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
   n_trait <- length(qtl.model)
   
   # If only one trait, return unedited
-  if (n_trait < 2)
-    stop("The 'qtl.model' must call for two or more traits.")
+  if (n_trait < 2) stop("The 'qtl.model' must call for two or more traits.")
   
   
   # If any should be randomly generated, continue
@@ -489,13 +494,14 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
     marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = n_qtl)
     
     # Get the positions of those markers
-    marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-      mutate(marker = row.names(.))
+    marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample)
+    marker_sample_pos$marker <- row.names(marker_sample_pos)
     
     # add to the df
-    marker_sample_pos1 <- marker_sample_pos %>%
-      mutate(add.eff = add.eff[,1],
-             dom.eff = dom.eff[,1])
+    marker_sample_pos1 <- marker_sample_pos
+    marker_sample_pos1$add.eff <- add.eff[,1]
+    marker_sample_pos1$dom.eff <- dom.eff[,1]
+    
     
     # Extract the chr and pos
     chr1 <- marker_sample_pos1$chr
