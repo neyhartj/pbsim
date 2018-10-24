@@ -122,51 +122,46 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
   ## Iterate over traits
   qtl_covariance <- lapply(X = qtl_info_split, FUN = function(trait_qtl) {
     
-    # Get the map and genotypes of only the QTL
-    qtl_geno <- pull_genotype(genome = genome, geno = founder.pop$geno, loci = trait_qtl$qtl_name) - 1
+    row.names(trait_qtl) <- trait_qtl[["qtl_name"]]
     
     ## Calculate the expected genetic variance and covariance of QTL
-    trait_qtl_split <- split(trait_qtl, trait_qtl$chr)
+    qtl_info <- as.matrix(trait_qtl[,c("chr", "pos", "add_eff"), drop = FALSE])
+    add_eff <- qtl_info[,"add_eff", drop = FALSE]
+    pos <- qtl_info[,"pos", drop = FALSE]
     
+    covar <- tcrossprod(add_eff)
     
-    ## Calculate the expected covariance between QTL
-    qtl_covar <- lapply(X = trait_qtl_split, FUN = function(qtl_chr) {
-      d <- as.matrix(dist(qtl_chr$pos))
-      
-      # Calculate pairwise D (see Zhong and Jannink, 2007)
-      # First convert cM to recombination fraction
-      c <- qtl:::mf.h(d)
-      D <- ((1 - (2 * c)) / (1 + (2 * c)))
-      # # The diagonals are 0
-      # diag(D) <- 0
-      
-      # Calculate the pairwise product of all QTL effects
-      qtl_crossprod <- tcrossprod(qtl_chr$add_eff)
-      dimnames(qtl_crossprod) <- list(qtl_chr$qtl_name, qtl_chr$qtl_name)
-      
-      # The covariance is the QTL effect product multiplied by the expected D
-      qtl_crossprod * D
-      
-    })
+    ## Create an empty matrix
+    D <- matrix(0, nrow = nrow(pos), ncol = nrow(pos), dimnames = dimnames(covar))
     
-    # Combine into a block diagonal, since the covariance between QTL on different chromosomes
-    # is expected to be 0
-    Cov <- as.matrix(.bdiag(qtl_covar))
-    dimnames(Cov) <- list(trait_qtl$qtl_name, trait_qtl$qtl_name)
-    # Return
-    return(Cov)
+    # Calculate separate distance matrices per chromosome
+    chr_c <- lapply(X = split(trait_qtl, trait_qtl[,"chr",drop = FALSE]), FUN = function(x) as.matrix(dist(x[,"pos",drop = FALSE])))
+    
+    for (cr in chr_c) {
+      cr2 <- qtl:::mf.h(cr)
+      d <- ((1 - (2 * cr2)) / (1 + (2 * cr2)))
+      D[row.names(cr), colnames(cr)] <- d
+    }
+    
+    # The covariance is the QTL effect product multiplied by the expected D
+    qtl_covar <- covar * D
     
   })
-  
-  ## Calculate the genetic covariance between QTL for different traits
-  # Split by chromosome
-  qtl_chr_split <- split(qtl_info, qtl_info$chr)
-  
-  
+    
+
   if (n_traits > 1) {
     
+    ## Calculate the genetic covariance between QTL for different traits
+    # Split by chromosome
+    qtl_chr_split <- split(qtl_info, qtl_info$chr)
+    
+    # Create an empty matrix of trait1 and trait2 QTL
+    qtl_trait_covariance <- matrix(0, nrow = nrow(qtl_info_split[[1]]), ncol = nrow(qtl_info_split[[2]]),
+                                   dimnames = list(qtl_info_split[[1]][["qtl_name"]], qtl_info_split[[2]][["qtl_name"]]))
+    
+    
     ## Iterate over chromosomes
-    qtl_trait_covariance <- lapply(X = qtl_chr_split, FUN = function(chr_qtl) {
+    covar_list <- lapply(X = qtl_chr_split, FUN = function(chr_qtl) {
       
       # Split by trait
       trait_split <- split(chr_qtl, chr_qtl$trait)
@@ -192,17 +187,16 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
       
     })
     
-    # Combine into a block diagonal, since the covariance between QTL on different chromosomes
-    # is expected to be 0
-    qtl_trait_covariance <- as.matrix(.bdiag(qtl_trait_covariance))
-    dimnames(qtl_trait_covariance) <- list(qtl_info_split[[1]]$qtl_name, qtl_info_split[[2]]$qtl_name)
+    ## Add to the large matrix
+    for (cov in covar_list) {
+      qtl_trait_covariance[row.names(cov), colnames(cov)] <- cov
+    }
     
   } else {
     qtl_trait_covariance <- NULL
     
   }
-  
-  
+      
   
   ## Now we iterate over the parent pairs to determine the QTL that are segregating
   
@@ -232,38 +226,21 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
       # Subset the parents
       par_qtl_geno <- tr_qtl[pars,,drop = FALSE]
       qtl_means <- colMeans(par_qtl_geno)
-      par1_qtl <- par_qtl_geno[1,]
+      par1_qtl <- par_qtl_geno[1,,drop = FALSE]
       
-      t(ifelse(qtl_means == 0, par1_qtl, 0))
-      
-      # poly_qtl <- names(qtl_means)[qtl_means == 0]
-      # # Get the marker states for parent 1 - use this to determine phase
-      # par_qtl_geno[1, poly_qtl, drop = F]
+      par1_qtl[,qtl_means == 0, drop = FALSE]
       
     })
     
     
     # Iterate over the traits and calculate individual genetic variance
-    trait_var <- pmap_dbl(list(poly_qtl_list, qtl_covariance), ~sum(crossprod(.x) * .y))
-    
-    
-    # trait_var <- mapply(poly_qtl_list, qtl_covariance, FUN = function(poly_mat, qtl_cov) {
-    #   
-    #   poly_qtl <- colnames(poly_mat)
-    #   exp_covar1 <- qtl_cov[poly_qtl, poly_qtl] * crossprod(poly_mat)
-    #   
-    #   # The expected variance is the sum of the variances at the polymorphic QTL, plus 2 times
-    #   # the expected covariance between all polymorphic QTL
-    #   # One can simply sum up the elements in the covariance matrix
-    #   sum(exp_covar1)
-    #   
-    # })
+    trait_var <- mapply(poly_qtl_list, qtl_covariance, FUN = function(x, y) sum(crossprod(x) * y[colnames(x), colnames(x)]))
+      
     
     if (!is.null(qtl_trait_covariance)) {
       
-      
       ## Calculate the expected covariance
-      trait_cov <- sum(qtl_trait_covariance * crossprod(poly_qtl_list[[1]], poly_qtl_list[[2]]))
+      trait_cov <- sum(qtl_trait_covariance[colnames(poly_qtl_list[[1]]), colnames(poly_qtl_list[[2]])] * crossprod(poly_qtl_list[[1]], poly_qtl_list[[2]]))
       
       # The expected correlation is calculated using the expected sd and expected cov
       exp_corG_j <- trait_cov / prod(sqrt(trait_var)) 
@@ -307,7 +284,7 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
 #' \code{pheno_val}. This is used as the training population.
 #' @param crossing.block A crossing block detailing the crosses to make. Must be a
 #' \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
-#' second gives the name of parent 2. See \code{\link{sim_crossing.block}}.
+#' second gives the name of parent 2. See \code{\link{sim_crossing_block}}.
 #' @param method The statistical method to predict marker effects. If \code{"RRBLUP"}, the
 #' \code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}
 #' function is used.

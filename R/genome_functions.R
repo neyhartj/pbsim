@@ -92,10 +92,10 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
       stop("Marker positions in the input 'map' must be named.")
     
     # Check that the map list has name 
-    if(is.null(names(exp_map))) stop("The map object must have chromosome names. These must be numeric.")
+    if(is.null(names(map))) stop("The map object must have chromosome names. These must be numeric.")
     
     # Check that the chromosome names are numeric.
-    if(any(is.na(as.numeric(names(exp_map))))) stop("The chromosome names in the map object must be coercible to numbers.")
+    if(any(is.na(as.numeric(names(map))))) stop("The chromosome names in the map object must be coercible to numbers.")
     
     # Make sure the map has the chromosome class attribute
     map <- lapply(map, structure, class = "A")
