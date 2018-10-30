@@ -4,12 +4,14 @@
 \alias{calc_LD}
 \title{Calculate linkage disequilibrium between loci}
 \usage{
-calc_LD(genome, pop, loci)
+calc_LD(genome, pop, measure = c("r", "D"), loci)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
 \item{pop}{A population.}
+
+\item{measure}{The type of LD measurement.}
 
 \item{loci}{A vector of locus names for which pairwise LD should be calculated.}
 }
