@@ -128,11 +128,11 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
     
     # Pull out the genotypes for those loci
     loci_geno <- pull_genotype(genome = genome, geno = pop$geno, loci = loci.list[[i]])
-    loci_geno <- apply(X = loci_geno, MARGIN = 2, FUN = factor, levels = c("2", "0"))
+    loci_geno <- as.data.frame(lapply(X = data.frame(loci_geno), FUN = factor, levels = c("2", "0")))
     
     
     # Calculate haplotype counts
-    haplo_counts <- as.data.frame(table(as.data.frame(loci_geno)))
+    haplo_counts <- as.data.frame(table(loci_geno))
     # Modify frequency and counts
     haplo_counts$Count <- haplo_counts$Freq
     haplo_counts$Freq <- haplo_counts$Freq / sum(haplo_counts$Freq)
@@ -212,7 +212,7 @@ calc_LD <- function(genome, pop, measure = c("r", "D"), loci) {
     loci.list <- combn(x = loci, m = 2, simplify = FALSE)
     haplo_freq <- calc_haplotype_freq(genome = genome, pop = pop, loci.list = loci.list)
     # Get the frequency of the 2, 2 haplotype
-    haplo_freq1 <- sapply(haplo_freq, "[", 4, "Freq")
+    haplo_freq1 <- sapply(haplo_freq, function(x) x[x[,1] == 2 & x[,2] == 2,"Freq"])
     # Get the product of the underlying loci
     freq_prod <- sapply(X = loci.list, function(x) prod(freq[x]))
     
