@@ -223,7 +223,7 @@ that the chromosomes are given in numbers, not names.")
     # Are the marker positions correct?
     qtl.pos <- lapply(X = split(qtl.model[,2], qtl.model[,1]), as.numeric)
     
-    if (!all(mapply(qtl.pos, genome$len[chrs_used], FUN = function(q, n) q <= n)))
+    if (!all(mapply(qtl.pos, genome$len[chrs_used], FUN = function(q, n) all(q <= n))))
       stop("The QTL positions in 'qtl.model' are not within the length of the 
            chromosomes.")
     
