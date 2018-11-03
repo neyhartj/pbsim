@@ -4,25 +4,13 @@
 \alias{sim_multi_gen_model}
 \title{Define a genetic model for two or more traits}
 \usage{
-sim_multi_gen_model(genome, qtl.model, corr, prob.corr, ...)
+sim_multi_gen_model(genome, qtl.model, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
 \item{qtl.model}{A matrix specifying the QTL model. See \code{\link[pbsim]{sim_gen_model}}.
 If the qtl.model matrices are NA, the two traits must have the same number of QTL.}
-
-\item{corr}{The desired genetic correlation if QTL are to be drawn randomly.
-May be positive or negative. See \code{Details} regarding the multivariate 
-random sampling of additive effects.}
-
-\item{prob.corr}{A matrix of two columns defining the probabilities that pairs 
-of QTL for two or more traits are at most \code{x} cM apart. The first column 
-sets the maximum distance between a QTL from  a second trait and a QTL from the 
-first trait, and the second column is the probability that QTL from a second 
-trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
-a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
-first column.}
 }
 \description{
 Generates a genetic model for two or more traits with desired genetic correlation.
@@ -42,6 +30,16 @@ QTL. If non-zero, this value can be larger that \code{a} or smaller than \code{-
 
 Other arguments include:
 \describe{
+  \item{\code{corr}}{The desired genetic correlation if QTL are to be drawn randomly.
+  May be positive or negative. See below regarding the multivariate 
+  random sampling of additive effects.}
+  \item{\code{corr}}{A matrix of two columns defining the probabilities that pairs 
+  of QTL for two or more traits are at most \code{x} cM apart. The first column 
+  sets the maximum distance between a QTL from  a second trait and a QTL from the 
+  first trait, and the second column is the probability that QTL from a second 
+  trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
+  a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
+  first column.}
   \item{\code{add.dist}}{The distribution of additive effects of QTL (if additive 
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} or \code{"geometric"}. For a distribution of \code{"normal"}, 
@@ -75,6 +73,12 @@ genome <- sim_genome(len, n.mar)
 qtl.model <- replicate(n = 2, matrix(NA, 50, 4), simplify = FALSE)
 genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
                               prob.corr = cbind(0, 1), add.dist = "geometric")
+                              
+# Simulate two traits that are controlled by 50 pairs of QTL that are between 20
+# and 30 cM.
+prob.corr <- rbind(c(20, 0), c(30, 1))
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
+                              prob.corr = prob.corr, add.dist = "geometric")
 
 
 }

@@ -111,12 +111,6 @@ sim_gen_model <- function(genome, qtl.model, ...) {
   # Extract other arguments
   other.args <- list(...)
   
-  # Number of chromosomes
-  n_chr <- nchr(genome)
-  
-  # length of chromosomes
-  chr_len <- chrlen(genome)
-  
   # If any should be randomly generated, continue
   if (random_qtl) {
     
@@ -212,26 +206,35 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     if (any(is.na(qtl.model)))
       stop("Unless the 'qtl.model' is completely NA, there can be no NA elements.")
     
-    if (!all(qtl.model[,1] %in% seq(n_chr)))
-      stop("The chromosome numbers in 'qtl.model' are not chromosomes in the 
-           genome.")
+    
+    ## The names of the chromosome must be numeric!
+    if (!is.numeric(qtl.model)) stop("The qtl model object must not have any non-numeric elements. Check 
+that the chromosomes are given in numbers, not names.")
+
+    ## What chromosomes are in the qtl.model?
+    qtl_model_chr <- unique(qtl.model[,1])
+    
+    if (!all(qtl.model[,1] %in% chrnames(genome)))
+      stop("The chromosome names in 'qtl.model' are not chromosomes in the genome.")
+    
+    # Which genome chromosomes are represented in the qtl.model?
+    chrs_used <- which(chrnames(genome) %in% qtl_model_chr)
     
     # Are the marker positions correct?
-    qtl.pos <- split(qtl.model[,2], qtl.model[,1])
+    qtl.pos <- lapply(X = split(qtl.model[,2], qtl.model[,1]), as.numeric)
     
-    if (!all(mapply(qtl.pos, genome$len, FUN = function(q, n) q <= n)))
+    if (!all(mapply(qtl.pos, genome$len[chrs_used], FUN = function(q, n) all(q <= n))))
       stop("The QTL positions in 'qtl.model' are not within the length of the 
            chromosomes.")
     
     # Rename to qtl.specs - and convert to df
-    qtl_specs <- list(as.data.frame(qtl.model)) %>% 
+    qtl_specs <- list(as.data.frame(qtl.model, stringsAsFactors = FALSE)) %>% 
       lapply(structure, names = c("chr", "pos", "add_eff", "dom_eff"))
     
   }
   
   # Add the genetic model to the genome
-  genome[["gen_model"]] <- qtl_specs %>%
-    lapply(arrange, chr, pos)
+  genome[["gen_model"]] <- lapply(X = qtl_specs, FUN = arrange, chr, pos)
   
   ## Add names of QTL if not present
   # Pull out all QTL
@@ -239,28 +242,23 @@ sim_gen_model <- function(genome, qtl.model, ...) {
   
   if (!"qtl_name" %in% names(all_qtl)) {
     
-    # Subset the unique and add names
-    unique_qtl <- all_qtl %>%
-      distinct(chr, pos, .keep_all = TRUE) %>%
-      mutate(qtl_name = paste("QTL", seq(n()), sep = ""),
-             qtl1_pair = NA) %>%
-      select(chr, pos, qtl_name)
+    # Find the markers that correspond to the positions listed in the qtl.model
+    qtl.pos <- split(all_qtl$pos, all_qtl$chr)
+    # Which genome chromosomes are represented in the qtl.model?
+    chrs_used <- which(chrnames(genome) %in% all_qtl$chr)
     
-    # Merge back with the total QTL
-    all_qtl <- full_join(all_qtl, unique_qtl, by = c("chr" = "chr", "pos" = "pos")) %>% 
-      split(.$trait) %>% 
-      lapply(select, -trait)
-    
-  
+    # Get the marker names that correspond to the QTL positions
+    qtl_names <- unlist(mapply(qtl.pos, genome$map[chrs_used], FUN = function(q, m) names(m)[match(x = q, table = m)], SIMPLIFY = FALSE))
+    # Add these names to the all_qtl df
+    all_qtl$qtl_name <- qtl_names
+    all_qtl$qtl1_pair <- NA
+    all_qtl <- list(all_qtl[-which(names(all_qtl) == "trait")])
+
     # Add back to genome
     genome$gen_model <- all_qtl
     
   }
-  
-  # Get unique QTL
-  unique_qtl <- pull_qtl(genome = genome, unique = TRUE)
-  
-  
+
   return(genome)
     
 } # Close the function
@@ -275,16 +273,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' @param genome An object of class \code{genome}.
 #' @param qtl.model  A matrix specifying the QTL model. See \code{\link[pbsim]{sim_gen_model}}.
 #' If the qtl.model matrices are NA, the two traits must have the same number of QTL.
-#' @param corr The desired genetic correlation if QTL are to be drawn randomly.
-#' May be positive or negative. See \code{Details} regarding the multivariate 
-#' random sampling of additive effects.
-#' @param prob.corr A matrix of two columns defining the probabilities that pairs 
-#' of QTL for two or more traits are at most \code{x} cM apart. The first column 
-#' sets the maximum distance between a QTL from  a second trait and a QTL from the 
-#' first trait, and the second column is the probability that QTL from a second 
-#' trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
-#' a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
-#' first column.
+
 #' 
 #' @details
 #' QTL are simulated by sampling or specifying existing markers, which become "hidden."
@@ -301,6 +290,16 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' 
 #' Other arguments include:
 #' \describe{
+#'   \item{\code{corr}}{The desired genetic correlation if QTL are to be drawn randomly.
+#'   May be positive or negative. See below regarding the multivariate 
+#'   random sampling of additive effects.}
+#'   \item{\code{corr}}{A matrix of two columns defining the probabilities that pairs 
+#'   of QTL for two or more traits are at most \code{x} cM apart. The first column 
+#'   sets the maximum distance between a QTL from  a second trait and a QTL from the 
+#'   first trait, and the second column is the probability that QTL from a second 
+#'   trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
+#'   a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
+#'   first column.}
 #'   \item{\code{add.dist}}{The distribution of additive effects of QTL (if additive 
 #'   effects are not provided in the \code{qtl.model} input). Can be 
 #'   \code{"normal"} or \code{"geometric"}. For a distribution of \code{"normal"}, 
@@ -347,7 +346,7 @@ sim_gen_model <- function(genome, qtl.model, ...) {
 #' 
 #' @export
 #' 
-sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
+sim_multi_gen_model <- function(genome, qtl.model, ...) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -387,37 +386,10 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
     stop("For one or more traits, the qtl.model must be either totally complete (i.e.
          no NA) or totally missing (i.e. all NA).")
   
-  
-  ## Error handling of prob.corr
-  # Make sure it has three columns
-  if (ncol(prob.corr) != 2)
-    stop("The 'prob.corr' input must have 2 columns.")
-  
-  # Are all probabilities between 0 and 1?
-  if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
-    stop("The probabilities in 'prob.corr' are not all between 0 and 1.")
-  
-  # Do the probabilities sum to 1
-  if (!sum(prob.corr[,2]) == 1)
-    stop("The probabilities in 'prob.corr' do not sum to 1.")
-  
-  # Are any of the levels of p greater than 50 or less than 0
-  if (!all(prob.corr[,1] >= 0 & prob.corr[,1] <= 50))
-    stop("The distances in 'prob.corr' must be between 0 and 50.")
-  
-  # Sort the matrix on order of p
-  prob.corr <- prob.corr[order(prob.corr[,1]),, drop = FALSE]
-  
   # Extract other arguments
   other.args <- list(...)
   
-  # Number of chromosomes
-  n_chr <- nchr(genome)
-  
-  # length of chromosomes
-  chr_len <- chrlen(genome)
-  
-  
+
   # How many traits?
   n_trait <- length(qtl.model)
   
@@ -427,6 +399,32 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
   
   # If any should be randomly generated, continue
   if (any(random_qtl)) {
+    
+    # Error handle the prob.corr and corr arguments
+    prob.corr <- other.args$prob.corr
+    if(is.null(prob.corr)) stop("argument 'prob.corr' is missing, with no default")
+    corr <- other.args$corr
+    if(is.null(corr)) stop("argument 'corr' is missing, with no default")
+    
+    ## Error handling of prob.corr
+    # Make sure it has three columns
+    if (ncol(prob.corr) != 2)
+      stop("The 'prob.corr' input must have 2 columns.")
+    
+    # Are all probabilities between 0 and 1?
+    if (!all(prob.corr[,2] >= 0 & prob.corr[,2] <= 1))
+      stop("The probabilities in 'prob.corr' are not all between 0 and 1.")
+    
+    # Do the probabilities sum to 1
+    if (!sum(prob.corr[,2]) == 1)
+      stop("The probabilities in 'prob.corr' do not sum to 1.")
+    
+    # Are any of the levels of p greater than 50 or less than 0
+    if (!all(prob.corr[,1] >= 0 & prob.corr[,1] <= 50))
+      stop("The distances in 'prob.corr' must be between 0 and 50.")
+    
+    # Sort the matrix on order of p
+    prob.corr <- prob.corr[order(prob.corr[,1]),, drop = FALSE]
     
     # Make sure the qtl models have the same number of QTL
     if (n_distinct(n_qtl_per_trait) != 1) 
@@ -742,6 +740,8 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
       
     }
     
+    
+    
   } else {
     # Else verify that the provided qtl.model matrices are sufficient
     
@@ -751,28 +751,37 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
       if (any(is.na(mat)))
         stop("Unless the 'qtl.model' is completely NA, there can be no NA elements.")
       
-      if (!all(mat[,1] %in% seq(n_chr)))
-        stop("The chromosome numbers in 'qtl.model' are not chromosomes in the 
-             genome.")
+      
+      
+      ## The names of the chromosome must be numeric!
+      if (!is.numeric(mat)) stop("The qtl model object must not have any non-numeric elements. Check 
+that the chromosomes are given in numbers, not names.")
+      
+      ## What chromosomes are in the qtl.model?
+      mat_chr <- unique(mat[,1])
+      
+      if (!all(mat[,1] %in% chrnames(genome)))
+        stop("The chromosome names in 'qtl.model' are not chromosomes in the genome.")
+      
+      # Which genome chromosomes are represented in the qtl.model?
+      chrs_used <- which(chrnames(genome) %in% mat_chr)
       
       # Are the marker positions correct?
       qtl.pos <- split(mat[,2], mat[,1])
       
-      if (!all(mapply(qtl.pos, genome$len, FUN = function(q, n) q <= n)))
+      if (!all(mapply(qtl.pos, genome$len[chrs_used], FUN = function(q, n) q <= n)))
         stop("The QTL positions in 'qtl.model' are not within the length of the 
-             chromosomes.")
+           chromosomes.")
+
     }
     
     # Rename to qtl.specs1 - and convert to df
-    qtl_specs1 <- lapply(qtl.model, as.data.frame) %>% 
-      lapply(structure, names = c("chr", "pos", "add_eff", "dom_eff"))
+    qtl_specs1 <- lapply(lapply(qtl.model, as.data.frame), structure, names = c("chr", "pos", "add_eff", "dom_eff"))
     
     } # Close if else statement
   
   # Add the genetic model to the genome
-  genome[["gen_model"]] <- qtl_specs1 %>%
-    lapply(arrange, chr, pos) %>%
-    lapply(mutate, chr = factor(chr, levels = chrnames(genome)))
+  genome[["gen_model"]] <- lapply(qtl_specs1, function(x) x[order(x$chr, x$pos),] )
   
   ## Add names of QTL if not present - generally done if missing by the user
   # Pull out all QTL
@@ -780,21 +789,40 @@ sim_multi_gen_model <- function(genome, qtl.model, corr, prob.corr, ...) {
   
   if (!"qtl_name" %in% names(all_qtl)) {
     
-    # Subset the unique and add names
-    unique_qtl <- all_qtl %>%
-      distinct(chr, pos, .keep_all = TRUE) %>%
-      mutate(qtl_name = paste("QTL", seq(n()), sep = ""),
-             qtl1_pair = NA) %>%
-      select(chr, pos, qtl_name)
+    # Split by trait
+    all_qtl_trait <- split(all_qtl, all_qtl$trait)
     
-    # Merge back with the total QTL
-    all_qtl <- full_join(all_qtl, unique_qtl, by = c("chr" = "chr", "pos" = "pos")) %>% 
-      split(.$trait) %>% 
-      lapply(select, -trait)
+    # Iterate over traits
+    for (i in seq_along(all_qtl_trait)) {
+      
+      trait_qtl <- all_qtl_trait[[i]]
+      
+      # Find the markers that correspond to the positions listed in the qtl.model
+      qtl.pos <- split(trait_qtl$pos, trait_qtl$chr)
+      # Which genome chromosomes are represented in the qtl.model?
+      chrs_used <- which(chrnames(genome) %in% all_qtl$chr)
+      
+      # Get the marker names that correspond to the QTL positions
+      qtl_names <- unlist(mapply(qtl.pos, genome$map[chrs_used], FUN = function(q, m) names(m)[match(x = q, table = m)], SIMPLIFY = FALSE))
+      
+      # Add these names to the trait_qtl df
+      trait_qtl$qtl_name <- qtl_names
+      trait_qtl$qtl1_pair <- NA
+      
+      ## For traits other than trait 1, find any markers that are the same as trait1
+      if (i > 1) {
+        any_qtl1 <- which(trait_qtl$qtl_name %in% all_qtl_trait[[1]]$qtl_name)
+        trait_qtl$qtl1_pair[any_qtl1] <- match(x = trait_qtl$qtl_name[any_qtl1], table = all_qtl_trait[[1]]$qtl_name)
+      }
+      
+      all_qtl_trait[[i]] <- trait_qtl
+      
+    }
     
+    ## For trait 2, find any markers that are the same as trait1
     
     # Add back to genome
-    genome$gen_model <- all_qtl
+    genome$gen_model <- all_qtl_trait
     
   }
   

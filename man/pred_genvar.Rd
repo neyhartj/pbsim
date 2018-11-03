@@ -23,7 +23,7 @@ will be filtered according to the parents in the \code{crossing.block}.}
 
 \item{crossing.block}{A crossing block detailing the crosses to make. Must be a
 \code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
-second gives the name of parent 2. See \code{\link{sim_crossing.block}}.}
+second gives the name of parent 2. See \code{\link{sim_crossing_block}}.}
 
 \item{method}{The statistical method to predict marker effects. If \code{"RRBLUP"}, the
 \code{\link[qtl]{mixed.solve}} function is used. Otherwise, the \code{\link[BGLR]{BGLR}}

@@ -128,9 +128,11 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
     
     # Pull out the genotypes for those loci
     loci_geno <- pull_genotype(genome = genome, geno = pop$geno, loci = loci.list[[i]])
+    loci_geno <- as.data.frame(lapply(X = data.frame(loci_geno), FUN = factor, levels = c("2", "0")))
+    
     
     # Calculate haplotype counts
-    haplo_counts <- as.data.frame(table(as.data.frame(loci_geno)))
+    haplo_counts <- as.data.frame(table(loci_geno))
     # Modify frequency and counts
     haplo_counts$Count <- haplo_counts$Freq
     haplo_counts$Freq <- haplo_counts$Freq / sum(haplo_counts$Freq)
@@ -153,6 +155,7 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param pop A population.
+#' @param measure The type of LD measurement.
 #' @param loci A vector of locus names for which pairwise LD should be calculated.
 #' 
 #' @return 
@@ -178,7 +181,7 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
 #' @export
 #' 
 #' 
-calc_LD <- function(genome, pop, loci) {
+calc_LD <- function(genome, pop, measure = c("r", "D"), loci) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -187,11 +190,42 @@ calc_LD <- function(genome, pop, loci) {
   # Make sure genome inherits the class "genome."
   if (!inherits(pop, "pop"))
     stop("The input 'pop' must be of class 'pop.'")
+    
+  measure <- match.arg(measure)
   
   # Pull out the genotypes for the specified loci
   loci_geno <- pull_genotype(genome = genome, geno = pop$geno, loci = loci)
-  # Calculate LD and return
-  cor(loci_geno)^2
+  
+  ## Calculate LD based on the measure
+  if (measure == "r") {
+    # Calculate LD and return
+    cor(loci_geno)
+    
+  } else if (measure == "D") {
+    # Error if there are any 1s
+    if (any(loci_geno == 1)) stop("The D mode of LD cannot be calculated if there are heterozygous genotypes.")
+    
+    # Calculate the frequency of the 2 allele
+    freq <- apply(X = loci_geno, MARGIN = 2, FUN = mean) / 2 
+    
+    # Calculate pairwise haplotype frequencies
+    loci.list <- combn(x = loci, m = 2, simplify = FALSE)
+    haplo_freq <- calc_haplotype_freq(genome = genome, pop = pop, loci.list = loci.list)
+    # Get the frequency of the 2, 2 haplotype
+    haplo_freq1 <- sapply(haplo_freq, function(x) x[x[,1] == 2 & x[,2] == 2,"Freq"])
+    # Get the product of the underlying loci
+    freq_prod <- sapply(X = loci.list, function(x) prod(freq[x]))
+    
+    # Subtract
+    D <- haplo_freq1 - freq_prod
+    # Create a matrix
+    D_mat <- as.dist(matrix(NA, nrow = length(loci), ncol = length(loci), dimnames = list(loci, loci)))
+    D_mat[seq_along(D_mat)] <- D
+    
+    # Return matrix
+    as.matrix(D_mat)
+    
+  }
   
 }
 
