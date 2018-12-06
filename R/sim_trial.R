@@ -120,7 +120,7 @@ sim_trial <- function(pop, h2, n.env = 1, n.rep = 1, check.pop, check.rep, ...) 
   
   # Note the environment variance is 0 so as to add the environmental effects
   # from the previous simulation
-  check_pheno <- sim_phenoval(pop = check_pop, h2 = h2, n.env = n.env, n.rep = check.rep,
+  check_pheno <- sim_phenoval(pop = check.pop, h2 = h2, n.env = n.env, n.rep = check.rep,
                               V_E = V_E, V_R = V_R)
   
   # Extract the phenotypic observations and add the environmental effects
