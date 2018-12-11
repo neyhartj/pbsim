@@ -33,13 +33,6 @@ Other arguments include:
   \item{\code{corr}}{The desired genetic correlation if QTL are to be drawn randomly.
   May be positive or negative. See below regarding the multivariate 
   random sampling of additive effects.}
-  \item{\code{corr}}{A matrix of two columns defining the probabilities that pairs 
-  of QTL for two or more traits are at most \code{x} cM apart. The first column 
-  sets the maximum distance between a QTL from  a second trait and a QTL from the 
-  first trait, and the second column is the probability that QTL from a second 
-  trait have that maximum distance. Pleiotropic QTL can be simulated by providing 
-  a 0 in the first column, and no genetic linkage is simulated if 50 is in the 
-  first column.}
   \item{\code{add.dist}}{The distribution of additive effects of QTL (if additive 
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} or \code{"geometric"}. For a distribution of \code{"normal"}, 
@@ -47,11 +40,11 @@ Other arguments include:
   the \code{\link[mvtnorm]{rmvnorm}} function and with variance-covariance matrix
   \code{Sigma = rbind(c(1, corr), c(corr, 1))}. For a distribution of \code{"geometric"}, 
   additive effects are calculated for the k-th QTL as \eqn{a^k} where 
-  \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is the number of QTL (Lande and Thompson, 1990).}.
-  the same variance-covariance matrix above is then used to adjust the additive
+  \eqn{a = (1 - L) / (1 + L)} and \eqn{L} is the number of QTL (Lande and Thompson, 1990).
+  The same variance-covariance matrix above is then used to adjust the additive
   effects to achieve the desired correlation. This approach assumes that pairs
   of QTL are in coupling phase linkage, therefore the desired correlation will
-  be different than the observed correlation depending on the population.
+  be different than the observed correlation depending on the population.}
   \item{\code{dom.dist}}{The distribution of dominance effects of QTL (if dominance
   effects are not provided in the \code{qtl.model} input). Can be 
   \code{"normal"} for normally-distributed dominance effects.}
@@ -71,13 +64,20 @@ genome <- sim_genome(len, n.mar)
 
 # Simulate two traits that are completely pleiotropy and influenced by 50 QTL
 qtl.model <- replicate(n = 2, matrix(NA, 50, 4), simplify = FALSE)
-genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, corr = 0.6, 
                               prob.corr = cbind(0, 1), add.dist = "geometric")
+                              
+# Use your own genetic model - 2 traits controlled by the same 10 QTL
+sample_qtl <- sample(markernames(genome, include.qtl = TRUE), 10)
+qtl.model <- replicate(2, cbind(find_markerpos(genome = genome, marker = sample_qtl), a = rnorm(10), d = 0), simplify = FALSE)
+
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model)
+
                               
 # Simulate two traits that are controlled by 50 pairs of QTL that are between 20
 # and 30 cM.
 prob.corr <- rbind(c(20, 0), c(30, 1))
-genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, cor = 0.6, 
+genome <- sim_multi_gen_model(genome = genome, qtl.model = qtl.model, corr = 0.6, 
                               prob.corr = prob.corr, add.dist = "geometric")
 
 
