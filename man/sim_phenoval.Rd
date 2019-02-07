@@ -67,6 +67,5 @@ pop <- sim_pop(genome = genome, n.ind = 200)
 ## Default simulates environment and residual effects, but no GxE
 pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 
-## Simulate
 
 }

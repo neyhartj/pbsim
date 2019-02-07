@@ -19,8 +19,8 @@ Imports:
     purrr,
     abind,
     rrBLUP,
+    BGLR,
     Matrix,
-    purrrlyr,
     methods,
     hypred,
     simcross
