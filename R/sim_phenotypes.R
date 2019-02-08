@@ -207,7 +207,7 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
 
 
 
-#' Simulate a phenotypic trial
+#' Simulate an experimental field trial
 #' 
 #' @description 
 #' Simulates a trial in which phenotypic data on a quantitative trait is gathered.
@@ -374,10 +374,6 @@ sim_trial <- function(pop, h2, n.env = 1, n.rep = 1, check.pop, check.rep, ...) 
   
 }
 
-
-
-  
-  
   
   
   
