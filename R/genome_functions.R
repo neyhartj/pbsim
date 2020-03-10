@@ -10,9 +10,7 @@
 #' \code{NULL} (default), marker positions are drawn from a uniform distribution. See \code{\link[qtl]{sim.map}} for more
 #' information.
 #' @param eq.spacing If TRUE, markers will be equally spaced. See \code{\link[qtl]{sim.map}}.
-#' @param type The type of genome output. If \code{"pbsim"}, the genome will include a 
-#' map that is compatible with \code{\link[qtl]{qtl-package}}, and if \code{"hypred"},
-#' the genome will be a list of genomes compatible with \code{\link[hypred]{hypred}}.
+#' @param type Deprecated. 'hyped' genomes are no longer supported.
 #' 
 #' @return 
 #' Object of class "genome" with the length of each chromosome, the number of
@@ -44,7 +42,6 @@
 #' 
 #' 
 #' @importFrom qtl sim.map
-#' @import hypred
 #' 
 #' @export 
 #' 
@@ -52,6 +49,11 @@
 sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "hypred")) {
   
   # Error handling
+  # Address type deprecation
+  type <- match.arg(type)
+  if (type == "hypred") stop("hypred genomes are no longer supported.")
+  
+  
   # len and n.mar must be present if map is not
   if (missing(map)) {
     len <- as.numeric(len)
@@ -67,16 +69,13 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
     
   }
   
-  # Match the type argument
-  type <- match.arg(type)
-  
   # The length of the len vector must be the same as that of n.mar
   if (length(len) != length(n.mar)) 
     stop("The length of the input 'len' vector does not equal the length of
          'n.mar.'")
   
   # Create an empty list of length n.chr
-  genome <- structure(vector("list"), class = "genome", type = type)
+  genome <- structure(vector("list"), class = "genome")
   
   # If genetic map is NULL, sample from uniform distribution
   if (missing(map)) {
@@ -91,12 +90,6 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
     if (any(sapply(map, function(m) is.null(names(m)))))
       stop("Marker positions in the input 'map' must be named.")
     
-    # Check that the map list has name 
-    if(is.null(names(map))) stop("The map object must have chromosome names. These must be numeric.")
-    
-    # Check that the chromosome names are numeric.
-    if(any(is.na(as.numeric(names(map))))) stop("The chromosome names in the map object must be coercible to numbers.")
-    
     # Make sure the map has the chromosome class attribute
     map <- lapply(map, structure, class = "A")
     # Reclass the map
@@ -104,31 +97,10 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
     
   }
   
-  
-  # What type of genome was requested?
-  if (type == "pbsim") {
-    
-    # Assemble the genome
-    genome[["len"]] <- len
-    genome[["n.mar"]] <- n.mar
-    genome[["map"]] <- map
-    
-  } else {
-    
-    # Remove the map classes
-    map <- sapply(X = map, FUN = structure, class = NULL, simplify = FALSE)
-    
-    # Apply a function over the number of chromosomes
-    hypred_list <- lapply(X = map, FUN = function(chr) {
-      # Create a new base genome
-      hp_genome <- hypredGenome(num.chr = 1, len.chr = max(chr) / 100, num.snp.chr = length(chr))
-      # Add genetic map
-      hypredNewMap(hp_genome, new.map = chr / 100) })
-    
-    # Add this information to the genome
-    genome[["hypredGenomes"]] <- hypred_list
-    
-  }
+  # Assemble the genome
+  genome[["len"]] <- len
+  genome[["n.mar"]] <- n.mar
+  genome[["map"]] <- map
   
   
   # Return the genome
@@ -145,8 +117,6 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
 #' 
 summary.genome <- function(x) {
   
-  # Summarize by hypred or pbsim
-  type <- attr(x, "type")
   
   n_chr <- nchr(x)
   len <- chrlen(x)
@@ -157,7 +127,6 @@ summary.genome <- function(x) {
   
   # Show
   cat("\nGenome summary \n\n")
-  cat("Genome type: ", type, "\n\n")
   cat("Number of chromosomes: ", n_chr, "\n")
   cat("Length of chromosomes (in cM): ", len, "\n")
   cat("Markers per chromosome: ", n_mar, "\n")
@@ -224,19 +193,9 @@ nmar <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
+  # All loci names
+  loci_names <- lapply(genome$map, names)
   
-  if (type == "pbsim") {
-    
-    # All loci names
-    loci_names <- lapply(genome$map, names)
-    
-  } else if (type == "hypred") {
-    # Get all loci names
-    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp") %>% lapply(names)
-    
-  }
   
   # Get the QTL names if present
   if (!is.null(genome$gen_model)) {
@@ -287,21 +246,9 @@ markernames <- function(genome, chr, include.qtl = FALSE) {
     chr <- chrnames(genome)
   }
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
-  
-  if (type == "pbsim") {
-    
-    # All loci names
-    loci_names <- lapply(genome$map, names)
-    
-  } else if (type == "hypred") {
-    # Get all loci names
-    loci_names <- lapply(genome$hypredGenomes, slot, "pos.snp")
-    loci_names <- lapply(loci_names, names)
-    
-  }
-  
+  # All loci names
+  loci_names <- lapply(genome$map, names)
+
   # Get the QTL names if present
   if (!include.qtl) {
     # Get QTL names
@@ -336,19 +283,9 @@ nchr <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
-  
-  if (type == "pbsim") {
-    n_chr <- length(genome$map)
-    
-  } else if (type == "hypred") {
-    n_chr <- length(genome$hypredGenomes)
-  
-  }
-  
   # Extract and return chromosomes
-  return(n_chr)
+  length(genome$map)
+
   
 } # Close the function
 
@@ -369,18 +306,7 @@ chrnames <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
-  
-  if (type == "pbsim") {
-    chr_names <- names(genome$map)
-    
-  } else if (type == "hypred") {
-    chr_names <- names(genome$hypredGenomes)
-    
-  }
-  
-  return(chr_names)
+  names(genome$map)
   
 } # Close function
 
@@ -403,18 +329,8 @@ chrlen <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
+  genome$len
   
-  if (type == "pbsim") {
-    chr_len <- genome$len
-    
-  } else if (type == "hypred") {
-    chr_len <- sapply(genome$hypredGenomes, slot, "len.chr") * 100
-    
-  }
-  
-  return(chr_len)
   
 } # Close the function
 
@@ -588,21 +504,8 @@ nloci <- function(genome, by.chr = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract the type
-  type <- attr(genome, "type")
-  
-  # Pipe by type
-  if (type == "pbsim") {
-  
-    # Use the map to determine the number of loci
-    n_loci <- sapply(genome$map, length)
-    
-  } else if (type == "hypred") {
-    
-    # Pull out the slots
-    n_loci <- sapply(genome$hypredGenomes, slot, "num.snp.chr")
-  
-  }
+  # Use the map to determine the number of loci
+  n_loci <- sapply(genome$map, length)
   
   # By chromosome?
   if (by.chr) {
@@ -630,24 +533,8 @@ map_to_table <- function(genome) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract the type
-  type <- attr(genome, "type")
-  
-  # Pipe by type
-  if (type == "pbsim") {
-    
-    # Extract the genome map
-    genome_map <- genome$map
-    
-  } else if (type == "hypred") {
-
-    # Extract the genome map
-    genome_map <- lapply(genome$hypredGenomes, slot, "pos.snp")
-    
-    # Convert to cM
-    genome_map <- lapply(genome_map, FUN = `*`, 100)
-    
-  }
+  # Extract the genome map
+  genome_map <- genome$map
   
   ## apply a function over the chromosomes in the map
   pos_df <- mapply(seq_along(genome_map), genome_map, FUN = function(chr, map) 
@@ -749,9 +636,6 @@ find_proxmarkers <- function(genome, marker, ..., include.qtl = FALSE) {
   # Are 'marker' in the total marker names?
   if (!all(marker %in% markernames(genome = genome, include.qtl = TRUE)))
     stop("The markers in 'marker' are not in the genome.")
-  
-  # Extract the type
-  type <- attr(genome, "type")
   
   # Extract the other arguments
   other.args <- list(...)

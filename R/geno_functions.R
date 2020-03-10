@@ -1,11 +1,9 @@
 #' Check a matrix of genotypes for completeness
 #' 
 #' @param genome An object of class \code{genome}.
-#' @param geno Genotype data on a population to phenotype. If the genome type is 
-#' \code{"pbsim"}, must be a matrix of dimensions \code{n.ind} x \code{n.loci}, 
-#' the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
-#' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
-#' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
+#' @param geno Genotype data on a population to phenotype. Must be a matrix of dimensions 
+#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a 
+#' list of such matrices.
 #' @param ignore.gen.model Logical - should the genetic model be ignored when
 #' checking the matrix of genotypes?
 #' 
@@ -36,8 +34,6 @@ check_geno <- function(genome, geno, ignore.gen.model = FALSE) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Get the genome type
-  type <- attr(genome, "type")
   
   # Extract the number of markers
   n_marker <- nmar(genome)
@@ -45,108 +41,42 @@ check_geno <- function(genome, geno, ignore.gen.model = FALSE) {
   # The geno input may have n_marker + n_qtl - n_perf_mar columns
   tot_loci <- nloci(genome)
   
-  if (type == "pbsim") {
-    
-    # If the geno input is a list, recombine
-    if (is.list(geno))
-      geno <- do.call("cbind", geno)
-    
-    # # Make sure the genos are coded correctly
-    # if (!all(geno %in% c(0, 1, 2))) {
-    #   warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
-    #   return(FALSE)
-    # }
-    
-    # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
-    if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
-      warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
-      return(FALSE)
-    }
-    
-    # Does the geno matrix have marker names
-    markers <- colnames(geno)
-    if (is.null(markers)) {
-      warning("No marker names in the geno input.") 
-      return(FALSE)
-    }
-    
-    # Get the marker names, but include QTL if the gene model should be ignored.
-    if (ignore.gen.model) {
-      genome_markers <- markernames(genome, include.qtl = TRUE)
-    } else {
-      genome_markers <- markernames(genome, include.qtl = FALSE)
-    }
-    
-    # Are the marker names consistent with the genome?
-    if (!all(genome_markers %in% markers)) {
-      warning("The marker names in the genome are not consistent with those in the geno input.") 
-      return(FALSE)
-    }
-    
-    
-    
-    
-    
-  } else if (type == "hypred") {
-    
-    # If the geno input is a list of arrays, recombine
-    if (is.list(geno) & length(dim(geno[[1]])) == 3) {
-      # Bind along columns
-      geno <- abind(geno, along = 2)
-
-    }
-    
-    # If the geno input is a list, recombine
-    if (is.list(geno))
-      geno <- do.call("cbind", geno)
-    
-    # Check the encoding based on array or list
-    if (length(dim(geno)) == 3) {
-      
-      if (!all(geno %in% c(0, 1))) {
-        warning("The input 'geno' must be encoded in z {0, 1}.") 
-        return(FALSE)
-      }
-      
-    } else if (length(dim(geno)) == 2) {
-      
-      # Make sure the genos are coded correctly
-      if (!all(geno %in% c(0, 1, 2))) {
-        warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
-        return(FALSE)
-      }
-      
-    }
-    
-    # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
-    if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
-      warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
-      return(FALSE)
-    }
-    
-    # Does the geno matrix have marker names
-    markers <- colnames(geno)
-    if (is.null(markers)) {
-      warning("No marker names in the geno input.") 
-      return(FALSE)
-    }
-    
-    # Get the marker names, but include QTL if the gene model should be ignored.
-    if (ignore.gen.model) {
-      genome_markers <- markernames(genome, include.qtl = TRUE)
-    } else {
-      genome_markers <- markernames(genome, include.qtl = FALSE)
-    }
-    
-    # Are the marker names consistent with the genome?
-    if (!all(genome_markers %in% markers)) {
-      warning("The marker names in the genome are not consistent with those in the geno input.") 
-      return(FALSE)
-    }
-    
-    
-    
-  } # Close the if statement
+  
+  # If the geno input is a list, recombine
+  if (is.list(geno))
+    geno <- do.call("cbind", geno)
+  
+  # # Make sure the genos are coded correctly
+  # if (!all(geno %in% c(0, 1, 2))) {
+  #   warning("The input 'geno' must be encoded in z {0, 1, 2}.") 
+  #   return(FALSE)
+  # }
+  
+  # Make sure the geno input has n_marker columns or n_marker + n_qtl columns
+  if (ncol(geno) != tot_loci & ncol(geno) != n_marker) {
+    warning("The number of loci in the geno input does not equal the number of markers or the number of markers plus the number of QTL in the genome.") 
+    return(FALSE)
+  }
+  
+  # Does the geno matrix have marker names
+  markers <- colnames(geno)
+  if (is.null(markers)) {
+    warning("No marker names in the geno input.") 
+    return(FALSE)
+  }
+  
+  # Get the marker names, but include QTL if the gene model should be ignored.
+  if (ignore.gen.model) {
+    genome_markers <- markernames(genome, include.qtl = TRUE)
+  } else {
+    genome_markers <- markernames(genome, include.qtl = FALSE)
+  }
+  
+  # Are the marker names consistent with the genome?
+  if (!all(genome_markers %in% markers)) {
+    warning("The marker names in the genome are not consistent with those in the geno input.") 
+    return(FALSE)
+  }
   
   # All clear
   return(TRUE)

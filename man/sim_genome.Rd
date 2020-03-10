@@ -19,9 +19,7 @@ information.}
 
 \item{eq.spacing}{If TRUE, markers will be equally spaced. See \code{\link[qtl]{sim.map}}.}
 
-\item{type}{The type of genome output. If \code{"pbsim"}, the genome will include a 
-map that is compatible with \code{\link[qtl]{qtl-package}}, and if \code{"hypred"},
-the genome will be a list of genomes compatible with \code{\link[hypred]{hypred}}.}
+\item{type}{Deprecated. 'hyped' genomes are no longer supported.}
 }
 \value{
 Object of class "genome" with the length of each chromosome, the number of

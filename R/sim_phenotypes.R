@@ -7,7 +7,7 @@
 #' @param pop An object of class \code{pop}.
 #' @param h2 The heritability of the trait or traits. May be a numeric vector of 
 #' length 1 (heritability is the same for all traits) or a numeric vector of 
-#' length n_trait. 
+#' length n_trait.
 #' @param n.env The number of environments in which to phenotype.
 #' @param n.rep The number of replicates of each individual in each environment.
 #' @param return.eff Should the variance components and effects be returned?
@@ -57,6 +57,12 @@
 #' pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 #' 
 #' 
+#' ## Simulate GxE
+#' pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2, V_GE = var(pop$geno_val$trait1) * 3, V_E = NULL, V_R = NULL)
+#' 
+#' 
+#' 
+#' 
 #' @export 
 #' 
 sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
@@ -83,11 +89,6 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   V_GE <- other.args$V_GE
   V_R <- other.args$V_R
   
-  # If the h2 vector is longer than 1, the length must be the same as the number
-  # of traits
-  if (length(h2) > 1 & length(h2) != n_trait)
-    stop("The length of h2, if not 1, must be the same as the number of traits.")
-  
   # The same goes for V_E and V_R - this will pass if both or either are NULL.
   if (length(V_E) > 1 & length(V_E) != n_trait)
     stop("The length of V_E, if not 1, must be the same as the number of traits.")
@@ -100,17 +101,29 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     stop("The length of h2, if not 1, must be the same as the number of traits.")
   
   
-  # Heritability must be between 0 and 1
-  if (!all(h2 >= 0, h2 <= 1))
-    stop("Heritability must be between 0 and 1.")
-  
-  
   # If this list is not empty, make sure that the elements are correctly named
-  if (length(other.args) != 0)
-    # Warn if both are not provided
+  if (length(other.args) != 0) {
+    
+    # Warn if all are not provided
     if (!all(c("V_E", "V_R", "V_GE") %in% names(other.args)))
       warning("V_E, V_GE, or V_R might have been passed, but were not detected. Check 
               your arguments.")
+    
+    # If none of the variance components are passed; you must provide the heritability
+  } else {
+    
+    if (missing(h2)) stop("Variance components were not passed; you must provide a hertiability (h2).")
+    
+    # If the h2 vector is longer than 1, the length must be the same as the number
+    # of traits
+    if (length(h2) > 1 & length(h2) != n_trait)
+      stop("The length of h2, if not 1, must be the same as the number of traits.")
+    
+    # Heritability must be between 0 and 1
+    if (!all(h2 >= 0, h2 <= 1))
+      stop("Heritability must be between 0 and 1.")
+    
+  }
   
   # Calculate genetic variance for each trait
   V_G <- sapply(geno_val[-1], var) 
@@ -123,7 +136,9 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   if (is.null(V_GE)) V_GE <- 0
   
   # Calculate residual variance if not provided
-  if (is.null(V_R)) V_R <- n.rep * n.env * ( (V_G / h2) - V_G - (V_GE / n.env) )
+  # if (is.null(V_R)) V_R <- n.rep * n.env * ( (V_G / h2) - V_G - (V_GE / n.env) )
+  if (is.null(V_R)) V_R <- n.rep * n.env * ( (V_G / h2) - V_G )
+  
   
   
   
@@ -281,7 +296,6 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
 #' @import dplyr
 #' @import tidyr
 #' 
-#' @export 
 #' 
 sim_trial <- function(pop, h2, n.env = 1, n.rep = 1, check.pop, check.rep, ...) {
   

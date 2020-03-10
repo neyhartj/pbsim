@@ -10,15 +10,16 @@ sim_family_cb(genome, pedigree, founder.pop, crossing.block, ...)
 \item{genome}{An object of class \code{genome}.}
 
 \item{pedigree}{A \code{pedigree} detailing the scheme to develop the family.
-Use \code{\link{sim_pedigree}} to generate.}
+Use \code{\link{sim_pedigree}} to generate. May be a single pedigree object 
+or (in the case of different family sizes) a list of length \code{nrow(crossing.block)}.}
 
 \item{founder.pop}{An object of class \code{pop} with the geno information for
-the parents. Additional individuals can be present in \code{parent_pop}. They
+the parents. Additional individuals can be present, but they
 will be filtered according to the parents in the \code{crossing.block}.}
 
 \item{crossing.block}{A crossing block detailing the crosses to make. Must be a
-\code{data.frame} with 2 columns: the first gives the name of parent 1, and the 
-second gives the name of parent 2. See \code{\link{sim_crossing.block}}.}
+\code{data.frame} with 2 columns (for 2-way crosses) or 4 columns (for 4-way crosses).
+See \code{\link{sim_crossing.block}}.}
 
 \item{...}{Additional arguments passed to \code{\link{sim_family}}.}
 }
@@ -45,34 +46,31 @@ genome <- sim_gen_model(genome = genome, qtl.model = qtl.model,
 # Simulate the genotypes for 8 founders
 founder.pop <- sim_founders(genome = genome, n.str = 8)
 
-# Generate a crossing block with 5 crosses
-cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
-
-# Create a pedigree with 100 individuals selfed to the F_3 generation
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
-
-# Simulate a group of families from the crossing block
-fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, crossing.block = cb)
-
-
-## The above commands can be run using a hypred genome
-genome <- sim_genome(len, n.mar, type = "hypred")
-
-# Simulate a quantitative trait influenced by 50 QTL
-qtl.model <- matrix(NA, 50, 4)
-genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
-                        add.dist = "geometric", max.qtl = 50)
-
-# Simulate the genotypes for 8 founders
-founder.pop <- sim_founders(genome = genome, n.str = 8)
+## 2-way population
 
 # Generate a crossing block with 5 crosses
 cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
 
-# Create a pedigree with 100 individuals selfed to the F_3 generation
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+# Create a bi-parental pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 
 # Simulate a group of families from the crossing block
-fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, crossing.block = cb)
+fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                        crossing.block = cb)
+                        
+## 4-way population
+
+# Generate a crossing block with 5 crosses
+cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5, type = "4way")
+
+# Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.par = 4, n.ind = 100, n.selfgen = 2)
+
+# Simulate a group of families from the crossing block
+fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                        crossing.block = cb)
+
+
+
 
 }

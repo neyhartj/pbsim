@@ -4,7 +4,7 @@
 \alias{sim_crossing_block}
 \title{Create a crossing block from a vector of parents}
 \usage{
-sim_crossing_block(parents, second.parents, n.crosses,
+sim_crossing_block(parents, n.crosses = NULL, type = c("2way", "4way"),
   scheme = c("random", "chain"), use.parents.once = FALSE)
 }
 \arguments{
@@ -12,11 +12,11 @@ sim_crossing_block(parents, second.parents, n.crosses,
 \code{second.parents} is not provided, crosses are assigned from randomly sampling
 the entries in \code{parents}.}
 
-\item{second.parents}{A \code{character} of line names to use as parents. If
-passed, must be the same length as \code{parents}.}
-
 \item{n.crosses}{The number of crosses to generate. Cannot be more than the
-possible number of crosses.}
+possible number of crosses. If NULL, the function returns all possible crosses.}
+
+\item{type}{The type of crosses to simulate. Can be \code{"2way"} for bi-parental
+crosses or \code{"4way"} for 4-way crosses.}
 
 \item{scheme}{The mating scheme. Can be one of \code{"random"} or \code{"chain"}.
 See \emph{Details} for more information.}
@@ -60,7 +60,7 @@ parents <- paste("line", seq(10), sep = "")
 # Generate 3 crosses randomly
 cb <- sim_crossing_block(parents = parents, n.crosses = 3)
 
-# Generate 3 crosses randomly, while only using parents once
+# Generate 3 crosses randomly, while using parents only once.
 cb <- sim_crossing_block(parents = parents, n.crosses = 3, use.parents.once = T)
 
 # Generate a chain of crosses

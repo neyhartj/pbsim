@@ -68,4 +68,10 @@ pop <- sim_pop(genome = genome, n.ind = 200)
 pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 
 
+## Simulate GxE
+pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2, V_GE = var(pop$geno_val$trait1) * 3, V_E = NULL, V_R = NULL)
+
+
+
+
 }

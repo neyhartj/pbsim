@@ -46,23 +46,10 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq, ignore.gen.
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
+
   
-  # Get the genome type
-  type <- attr(genome, "type")
-  
-  # Extract the map, depending on type
-  if (type == "pbsim") {
-    map <- genome$map
-    
-  } else {
-    map <- lapply(X = genome$hypredGenomes, function(hyp_chr) {
-      # Extract and convert to cM
-      structure(slot(object = hyp_chr, "pos.snp") * 100, class = "A") })
-    
-    class(map) <- "map"
-  
-  }
-    
+  # Extract the map
+  map <- genome$map
     
   ## Borrowed from simFounderSnps
   n.str <- as.character(n.str)
@@ -131,24 +118,6 @@ sim_founders <- function(genome, n.str = c("2", "4", "8"), pat.freq, ignore.gen.
   # Add row and column names
   dimnames(geno) <- list(founder_names, mar_names)
   
-  # If the genome is hypred, convert to haploids
-  if (type == "hypred") {
-    
-    # Split the genos by individual
-    geno_split <- split(geno, 1:nrow(geno), drop = FALSE)
-    geno_split <- lapply(geno_split, FUN = function(ind) rbind(ind / 2, ind / 2) )
-    
-    # Empty array
-    haploid <- array(data = NA, dim = c(2, ncol(geno), length(geno_split)),
-                     dimnames = list(NULL, colnames(geno), row.names(geno)))
-    
-    for (k in seq_along(geno_split)) {
-      haploid[,,k] <- geno_split[[k]]
-    }
-    
-    geno <- haploid
-     
-  }
 
   
   # Create the pop object and return

@@ -1,3 +1,194 @@
+#' Create a population object
+#' 
+#' @description 
+#' Assembles genotype data and into a \code{pop} object.
+#' 
+#' @param genome An object of class \code{genome}.
+#' @param geno Genotype data on a population to phenotype. If the genome type is 
+#' \code{"pbsim"}, must be a matrix of dimensions \code{n.ind} x \code{n.loci}, 
+#' the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
+#' genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
+#' \code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.
+#' @param ignore.gen.model Logical - should any gene model be ignored when creating
+#' the population? Use this to force a population without a gene model.
+#' 
+#' 
+#' @details 
+#' A \code{pop} is similar to a \code{cross} object in \code{\link[qtl]{qtl-package}} 
+#' (see \code{\link[qtl]{read.cross}}). The \code{pop} object stores information on the
+#' genome, the genotypes at genetic markers, and phenotypes. The \code{pop} object is
+#' meant to be a bit more flexible, without the pedigree or family structure required in
+#' a \code{cross} object.
+#' 
+#' @return 
+#' An object of class \code{pop} with genotype information for the individuals in
+#' that population and the genotypic value of those individuals.
+#' 
+#' The genotypic value of individuals is calculcated as the sum of the QTL effects
+#' carried by each individual. The genetic variance is calculated as the variance
+#' of these genotypic values (\eqn{V_G = var(g)}).
+#' 
+#' @examples 
+#' 
+#' \dontrun{
+#' 
+#' # Use data from the PopVar package
+#' library(PopVar)
+#' data("think_barley")
+#' 
+#' # Format the map correctly and simulate a genome
+#' map_in <- map.in_ex[,-1]
+#' row.names(map_in) <- map.in_ex$mkr
+#' genome <- sim_genome(map = table_to_map(map_in))
+#' 
+#' genos <- apply(X = G.in_ex[-1,-1], MARGIN = 2, FUN = as.numeric)
+#' dimnames(genos) <- list(as.character(G.in_ex$V1[-1]), as.character(unlist(G.in_ex[1,-1])))
+#' 
+#' # Impute with the rounded mean
+#' genos1 <- apply(X = genos, MARGIN = 2, FUN = function(snp) {
+#'   mean <- ifelse(mean(snp, na.rm = T) < 0, -1, 1)
+#'   snp[is.na(snp)] <- mean
+#'   return(snp) })
+#' 
+#' ## Create a population without a genetic model
+#' pop <- create_pop(genome = genome, geno = genos1 + 1, ignore.gen.model = T)
+#' 
+#' ## Create a genetic model with 15 QTL
+#' qtl.model <- matrix(NA, ncol = 4, nrow = 15)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, add.dist = "geometric")
+#' 
+#' pop <- create_pop(genome = genome, geno = genos1 + 1)
+#' 
+#' }
+#' 
+#' 
+#' @importFrom abind abind
+#' 
+#' @export
+#' 
+create_pop <- function(genome, geno, ignore.gen.model = FALSE) {
+  
+  ## Error handling
+  # Make sure genome inherits the class "genome."
+  if (!inherits(genome, "genome"))
+    stop("The input 'genome' must be of class 'genome.'")
+  
+  # Check the genome and geno
+  if (!check_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model))
+    stop("The geno did not pass. See warning for reason.")
+  
+  
+  # Create empty pop list
+  pop <- structure(vector("list", 2), class = "pop", names = c("geno", "geno_val"))
+  
+  
+  # Sort the genos on individual names
+  geno <- geno[order(row.names(geno)),]
+  
+  # Split the geno matrix into chromosomes
+  geno_split <- split_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model)
+  
+  # Calculate the genotypic value - ignore if told so
+  if (ignore.gen.model) {
+    geno_val <- NULL
+  } else {
+    geno_val <- calc_genoval(genome = genome, geno = geno_split)
+  }
+  
+  
+  # Add data to the pop
+  pop[["geno"]] <- geno_split
+  pop[["geno_val"]] <- geno_val
+  
+  # Return
+  return(pop)
+  
+} # Close the function
+
+
+
+
+#' Simulate a population
+#' 
+#' @description
+#' Simulates a random population of given population size. SNPs are simulated
+#' to be in linkage equilibrium.
+#' 
+#' @param genome A genome object.
+#' @param n.ind The number of individual in the population.
+#' @param ignore.gen.model Logical - should the gene model be ignored?
+#' 
+#' @return 
+#' A \code{pop} object.
+#' 
+#' @examples 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#'                         
+#' # Simulate the population
+#' pop <- sim_pop(genome = genome, n.ind = 100)
+#' 
+#' @export
+#' 
+sim_pop <- function(genome, n.ind, ignore.gen.model = FALSE) {
+  
+  # Check inputs
+  stopifnot(class(genome) == "genome")
+  stopifnot(class(n.ind) == "numeric")
+  
+  n.ind <- as.integer(n.ind)
+  
+  # Get the genome type
+  type <- attr(genome, "type")
+  
+  # Extract the map, depending on type
+  if (type == "pbsim") {
+    map <- genome$map
+    
+  } else {
+    map <- lapply(X = genome$hypredGenomes, function(hyp_chr) {
+      # Extract and convert to cM
+      structure(slot(object = hyp_chr, "pos.snp") * 100, class = "A") })
+    
+    class(map) <- "map"
+    
+  }
+  
+  # Create individual names
+  ind_names <- paste("ind", formatC(x = seq(n.ind), width = nchar(n.ind), flag = 0, format = "d"), sep = "")
+  
+  # Simulate markers
+  geno <- lapply(X = map, FUN = function(m) {
+    mar_chr <- length(m)
+    M <- replicate(n = mar_chr, ifelse(runif(n = n.ind) < 0.5, 0, 2))
+    `dimnames<-`(M, list(ind_names, names(m))) })
+  
+  geno1 <- do.call("cbind", geno)
+  
+  # Create the population
+  create_pop(genome = genome, geno = geno1, ignore.gen.model = ignore.gen.model)
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
 #' Number of individuals in a population
 #' 
 #' @param pop An object of class \code{pop}.
@@ -206,9 +397,10 @@ combine_pop <- function(pop_list) {
     stop("One of more of the elements in 'pop_list' is not a 'pop' object.")
   
   # Combine element names
-  element_names <- lapply(pop_list, names) %>% 
-    unlist() %>%
-    unique()
+  element_names <- unique(unlist(lapply(pop_list, names)))
+  
+  ## Get the individual names from each population
+  pop_list_indiv <- lapply(X = pop_list, FUN = indnames)
   
   # Create a new pop object with elements present in any of the pops
   new_pop <- structure(vector("list", length(element_names)), class = "pop", 
@@ -237,6 +429,18 @@ combine_pop <- function(pop_list) {
     # Combine
     new_pop$pheno_val$pheno_obs <- do.call("rbind", lapply(X = pheno_list, FUN = "[[", "pheno_obs"))
     new_pop$pheno_val$pheno_mean <- do.call("rbind", lapply(X = pheno_list, FUN = "[[", "pheno_mean"))
+    
+    # Add factor levels to the phenotype means; missing levels will become NA; remove factors
+    # Subset for easier use
+    pheno_mean_new <- new_pop$pheno_val$pheno_mean
+    pheno_mean_new$ind <- factor(pheno_mean_new$ind, levels = unlist(pop_list_indiv))
+    
+    # Make missing cases explicit
+    pheno_mean_new1 <- as.data.frame(complete(data = pheno_mean_new, ind))
+    pheno_mean_new1$ind <- as.character(pheno_mean_new1$ind)
+    
+    # Replace
+    new_pop$pheno_val$pheno_mean <- pheno_mean_new1
     
   }
   

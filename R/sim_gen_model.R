@@ -85,8 +85,6 @@ sim_gen_model <- function(genome, qtl.model, ...) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
   
   # Is there already genetic architecture?
   # If so clear it
@@ -352,8 +350,6 @@ sim_multi_gen_model <- function(genome, qtl.model, ...) {
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
   
-  # Extract information based on the type
-  type <- attr(genome, "type")
   
   # Is there already genetic architecture?
   # If so clear it

@@ -9,11 +9,9 @@ check_geno(genome, geno, ignore.gen.model = FALSE)
 \arguments{
 \item{genome}{An object of class \code{genome}.}
 
-\item{geno}{Genotype data on a population to phenotype. If the genome type is 
-\code{"pbsim"}, must be a matrix of dimensions \code{n.ind} x \code{n.loci}, 
-the elements of which must be z {0, 1, 2}, or a list of such matrices. If the 
-genome type is \code{"hypred"}, must be an array of dimensions \code{2} x 
-\code{n.loci} x \code{n.ind}, the elements of which must be z {0, 1}.}
+\item{geno}{Genotype data on a population to phenotype. Must be a matrix of dimensions 
+\code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a 
+list of such matrices.}
 
 \item{ignore.gen.model}{Logical - should the genetic model be ignored when
 checking the matrix of genotypes?}

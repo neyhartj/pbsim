@@ -7,10 +7,10 @@
 #' @param parents A \code{character} of line names to use as parents. If
 #' \code{second.parents} is not provided, crosses are assigned from randomly sampling
 #' the entries in \code{parents}.
-#' @param second.parents A \code{character} of line names to use as parents. If
-#' passed, must be the same length as \code{parents}.
+#' @param type The type of crosses to simulate. Can be \code{"2way"} for bi-parental
+#' crosses or \code{"4way"} for 4-way crosses.
 #' @param n.crosses The number of crosses to generate. Cannot be more than the
-#' possible number of crosses.
+#' possible number of crosses. If NULL, the function returns all possible crosses.
 #' @param scheme The mating scheme. Can be one of \code{"random"} or \code{"chain"}.
 #' See \emph{Details} for more information.
 #' @param use.parents.once \code{Logical} - should parents be used only once?
@@ -48,7 +48,7 @@
 #' # Generate 3 crosses randomly
 #' cb <- sim_crossing_block(parents = parents, n.crosses = 3)
 #' 
-#' # Generate 3 crosses randomly, while only using parents once
+#' # Generate 3 crosses randomly, while using parents only once.
 #' cb <- sim_crossing_block(parents = parents, n.crosses = 3, use.parents.once = T)
 #' 
 #' # Generate a chain of crosses
@@ -62,91 +62,79 @@
 #' # When using scheme = "chain", second.parents is ignored
 #' cb <- sim_crossing_block(parents = parents, second.parents = second.parents, scheme = "chain")
 #' 
-#' @import dplyr
+#' @importFrom arrangements combinations
 #' 
 #' @export
 #' 
-sim_crossing_block <- function(parents, second.parents, n.crosses, scheme = c("random", "chain"), 
-                               use.parents.once = FALSE) {
+sim_crossing_block <- function(parents, n.crosses = NULL, type = c("2way", "4way"),
+                               scheme = c("random", "chain"), use.parents.once = FALSE) {
   
   # Error
   if (!is.character(parents)) 
     stop("The input 'parents' must be a character.")
   
-  if (!missing(second.parents)) {
-    if (!is.character(second.parents))
-      stop("The input 'second.parents' must be a character.")
-  
-  } else {
-    # Else copy the parent vector
-    second.parents <- parents
-  }
-  
-  # Is method a correct choice?
+  # Match arguments
   scheme <- match.arg(scheme)
+  type <- match.arg(type) 
+  
+  # Number of unique parents
+  n_unique_pars <- length(unique(parents))
+  
+  # Convert type to numeric
+  type <- ifelse(type == "2way", 2, 4)
+  # Calculate the total number of possible crosses
+  n_possible_crosses <- choose(n_unique_pars, type)
+  # Choose what happens if n.crosses is NULL
+  n.crosses <- ifelse(is.null(n.crosses), n_possible_crosses, n.crosses)
+  
+  # Error if the number of requested crosses is greater than what is possible
+  if (n.crosses > n_possible_crosses) stop ("The number of requested crosses is greater than the number of
+                                            possible crosses.")
   
   # Run depending on scheme 
   if (scheme == "random") {
     
-    # How many unique parents
-    n_unique <- n_distinct(c(parents, second.parents))
-    
-    # Generate all pairwise crosses minus selfs and reciprocals
-    sample_crosses <- expand.grid(parent2 = second.parents, parent1 = parents, stringsAsFactors = FALSE) %>%
-      select(parent1, parent2) %>%
-      filter(parent1 != parent2)
-    
-    # Find reciprocals and remove
-    sample_crosses1 <- sample_crosses %>% 
-      mutate(key = paste(pmin(parent1, parent2), pmax(parent1, parent2), sep = "")) %>% 
-      distinct(key, .keep_all = TRUE) %>%
-      select(-key)
-    
-    # Sample n.crosses from the sample crosses
-    chosen_crosses <- sample_crosses1 %>%
-      sample_n(n.crosses) %>%
-      data.frame(row.names = NULL)
-    
     # Use parents once?
     if (use.parents.once) {
       
-      # Make sure the number of crosses is not more than half the number of 
-      # unique parents
-      if (n.crosses > (n_unique / 2)) 
-        stop("The number of requested crosses exceeds those possible with 'use.parents.once' = TRUE.")
+      ## First determine the number of unique lines required for using parents once
+      n_unique_req <- type * n.crosses
       
-      # Count the occurence of all parents
-      par_count <- table(unlist(chosen_crosses))
+      # Stop if n_unique_pars is less than n_unique_req
+      if (n_unique_pars < n_unique_req) 
+        stop(paste0("You have not provided enough unique parents to use parents only once. For ",
+                    n.crosses, " ", type, "-way crosses, you need to provide ", n_unique_req, 
+                    " unique parents."))
       
-      # While any number is greater than 1, resample
-      while (any(par_count > 1)) {
-        
-        chosen_crosses <- sample_crosses1 %>%
-          sample_n(n.crosses) %>%
-          data.frame(row.names = NULL)
-        
-        # Count the occurence of all parents
-        par_count <- table(unlist(chosen_crosses))
-        
-      }
+      # Sample the number of unique parents and assemble into a data.frame
+      chosen_crosses <- matrix(data = sample(x = parents, size = n_unique_req), nrow = n.crosses, ncol = type,
+                               dimnames = list(NULL, paste0("parent", seq_len(type))))
+      chosen_crosses <- as.data.frame(chosen_crosses, stringsAsFactors = FALSE)
+      
+      
+    } else {
+      
+      # Randomly sample crosses
+      chosen_crosses <- as.data.frame(x = combinations(x = parents, k = type), stringsAsFactors = FALSE)
+      chosen_crosses <- chosen_crosses[sort(sample(nrow(chosen_crosses), n.crosses)),]
+      names(chosen_crosses) <- paste0("parent", seq_along(chosen_crosses))
       
     }
     
-    
   } else if (scheme == "chain") {
+    
+    # Give a warning for use parents once
+    warning('use.parents.once is ignored when scheme == "chain".')
+    
     # Chain scheme
-    
-    # The number of crosses is equal to the number of parents
-    n.crosses <- length(parents)
-    
-    # Create an empty data.frame
-    chosen_crosses <- as.data.frame(
-      matrix(NA, nrow = n.crosses, ncol = 2, dimnames = list(NULL, c("parent1", "parent2")))
+    chosen_crosses <- cbind(
+      parent1 = parents, 
+      parent2 = c(tail(parents, 1), head(parents, -1)),
+      parent3 = c(tail(parents, 2), head(parents, -2)),
+      parent4 = c(tail(parents, 3), head(parents, -3))
     )
     
-    # Add parents to the df
-    chosen_crosses$parent1 <- parents
-    chosen_crosses$parent2 <- c(tail(parents, -1), head(parents, 1))
+    chosen_crosses <- as.data.frame(chosen_crosses, stringsAsFactors = FALSE)
     
   }
   

@@ -4,14 +4,18 @@
 \alias{sim_pedigree}
 \title{Create a pedigree for a cross}
 \usage{
-sim_pedigree(n.ind, bcpar, n.bcgen = 0, n.selfgen = Inf)
+sim_pedigree(n.par, n.ind, bcpar, n.bcgen = 0, n.selfgen = Inf)
 }
 \arguments{
+\item{n.par}{The number of founding parents. May be 2 (for a 2-way cross) or 
+4 (for a 4-way cross).}
+
 \item{n.ind}{The number of initial F_1 individuals that are created. By
 single-seed decent, this is also the number of final inbred individuals.}
 
 \item{bcpar}{The recurrant parent in backcrossing. If not \code{NULL} (default),
-can be \code{1} or \code{2}.}
+must point to one of the two parents (for a 2-way cross) or four parents (for a
+4-way cross).}
 
 \item{n.bcgen}{The number of backcross generations to the parent specified
 by \code{bc.par}.}

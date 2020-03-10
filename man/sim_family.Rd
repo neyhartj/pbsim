@@ -4,7 +4,8 @@
 \alias{sim_family}
 \title{Simulate a family from a pedigree}
 \usage{
-sim_family(genome, pedigree, founder.pop, ignore.gen.model = FALSE, ...)
+sim_family(genome, pedigree, founder.pop, map.function = c("haldane",
+  "kosambi", "c-f", "morgan"), ignore.gen.model = FALSE, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -15,6 +16,9 @@ Use \code{\link{sim_pedigree}} to generate.}
 \item{founder.pop}{An object of class \code{pop} with the geno information for
 the founders. Use the \code{\link{subset.pop}} function to subset a \code{pop}
 object.}
+
+\item{map.function}{The mapping function used to convert genetic distance to
+recombination fractions. Can be one of "haldane", "kosambi", "c-f", or "morgan".}
 
 \item{ignore.gen.model}{Logical - should the gene model be ignored?}
 }
@@ -52,41 +56,43 @@ qtl.model <- matrix(NA, 50, 4)
 genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
                         add.dist = "geometric", max.qtl = 50)
 
+## 2-way population
+
 # Simulate the founder genotypes
-founder.pop <- sim_founders(genome)
+founder.pop <- sim_founders(genome, pat.freq = c(0, 1))
 
 # Create a pedigree with 100 individuals selfed to the F_3 generation
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
-
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 
 # Create a pedigree with 100 RIL individuals
-ped <- sim_pedigree(n.ind = 100, n.selfgen = Inf)
-
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = Inf)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 
 # Create a pedigree with 100 doubled-haploid individuals induced after the F_2
 # generation.
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
-
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop, dh = TRUE)
-                  
-## The above commands can be run using a hypred genome
-genome <- sim_genome(len, n.mar, type = "hypred")
 
-# Simulate a quantitative trait influenced by 50 QTL
-qtl.model <- matrix(NA, 50, 4)
-genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
-                        add.dist = "geometric", max.qtl = 50)
 
-# Simulate the founder genotypes
-founder.pop <- sim_founders(genome)
+## 4-way population
 
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+# Simulate founders
+founder.pop <- sim_founders(genome, n.str = 4, pat.freq = c(0, 0, 1))
 
+#' # Create a pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.par = 4, n.ind = 100, n.selfgen = 2)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 
+# Create a pedigree with 100 RIL individuals
+ped <- sim_pedigree(n.par = 4, n.ind = 100, n.selfgen = Inf)
+fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
+
+# Create a pedigree with 100 doubled-haploid individuals induced after the F_2
+# generation.
+ped <- sim_pedigree(n.par = 4, n.ind = 100, n.selfgen = 2)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop, dh = TRUE)
 
- 
+
+                  
 }
