@@ -5,7 +5,7 @@
 \alias{print.genome}
 \title{Summarize a genome object}
 \usage{
-summary.genome(x)
+\method{summary}{genome}(x)
 
 \method{print}{genome}(x)
 }
