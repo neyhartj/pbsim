@@ -143,24 +143,11 @@ sim_pop <- function(genome, n.ind, ignore.gen.model = FALSE) {
   # Check inputs
   stopifnot(class(genome) == "genome")
   stopifnot(class(n.ind) == "numeric")
-  
   n.ind <- as.integer(n.ind)
   
-  # Get the genome type
-  type <- attr(genome, "type")
+  # Map
+  map <- genome$map
   
-  # Extract the map, depending on type
-  if (type == "pbsim") {
-    map <- genome$map
-    
-  } else {
-    map <- lapply(X = genome$hypredGenomes, function(hyp_chr) {
-      # Extract and convert to cM
-      structure(slot(object = hyp_chr, "pos.snp") * 100, class = "A") })
-    
-    class(map) <- "map"
-    
-  }
   
   # Create individual names
   ind_names <- paste("ind", formatC(x = seq(n.ind), width = nchar(n.ind), flag = 0, format = "d"), sep = "")

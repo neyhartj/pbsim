@@ -1,21 +1,5 @@
-#' Calculate the genotypic value of individuals
+#' Hidden functions; generally not to be called by the user
 #' 
-#' @param genome An object of class \code{genome}.
-#' @param geno Genotype data on a population to phenotype. Can be a matrix of dimensions
-#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-#' of such matrices.
-#' 
-#' @details 
-#' Calculates the genotypic value of an individual or one or more traits by adding
-#' the allele effects and dominance deviations of the QTL carried by that individual.
-#' 
-#' @return
-#' A matrix of dimensions \code{n.ind} x \code{n.trait} with genotypic values
-#' of the individuals.
-#' 
-#' @import dplyr
-#' 
-#' @export 
 #' 
 calc_genoval <- function(genome, geno) {
   
@@ -49,20 +33,14 @@ calc_genoval <- function(genome, geno) {
   colnames(geno_val1) <- paste("trait", seq(ncol(geno_val1)), sep = "")
   
   # Convert the row.names to a column and return the data.frame
-  data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE) %>%
-    # Sort on individual name
-    arrange(ind)
+  gv <- data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE)
+  gv[order(gv$ind),]
+  
   
 } # Close the function
 
 
 
-  
-  
-  
-  
-  
-  
 
 
 

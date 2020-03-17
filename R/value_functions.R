@@ -1,56 +1,85 @@
-#' Calculate the genotypic value of individuals
+#' Extract values from a population
 #' 
-#' @param genome An object of class \code{genome}.
-#' @param geno Genotype data on a population to phenotype. Can be a matrix of dimensions
-#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a list
-#' of such matrices.
+#' @description 
+#' Functions to extract phenotypic values, genotypic values, or predicted
+#' genotypic values.
+#' 
+#' @param pop A 'pop' object.
+#' @param means For phenotypic data, should phenotypic means be returned, or
+#' all observations?
 #' 
 #' @details 
-#' Calculates the genotypic value of an individual or one or more traits by adding
-#' the allele effects and dominance deviations of the QTL carried by that individual.
 #' 
-#' @return
-#' A matrix of dimensions \code{n.ind} x \code{n.trait} with genotypic values
-#' of the individuals.
+#' \describe{
+#'   \item{pheno}{Extract phenotypic values.}
+#'   \item{gv}{Extract genotypic values.}
+#'   \item{pgv}{Extract predicted genotypic values.}
+#' }
 #' 
-#' @import dplyr
+#' @examples 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
 #' 
-#' @export 
+#' genome <- sim_genome(len, n.mar)
 #' 
-calc_genoval <- function(genome, geno) {
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#'                         
+#' # Simulate the population
+#' pop <- sim_pop(genome = genome, n.ind = 100)
+#' # Generate phenotypes
+#' pop <- sim_phenoval(pop = pop, h2 = 0.5)
+#' 
+#' 
+#' ## Extract genotypic values
+#' gv(pop)
+#' 
+#' ## Extract phenotypic values
+#' pheno(pop)
+#' 
+#' ## Try to get predicted phenotypic values. There are none, so this returns \code{NULL}.
+#' pgv(pop)
+#' 
+#' # Predict genotypic values
+#' pop <- pred_geno_val(genome = genome, training.pop = pop, candidate.pop = pop)
+#' # Now extract predicted genotypic values
+#' pgv(pop)
+#' 
+#' @export
+#' 
+pheno <- function(pop, means = TRUE) {
+  # Error
+  stopifnot(class(pop) == "pop")
   
-  # Check the genome and geno
-  if (!check_geno(genome = genome, geno = geno))
-    stop("The geno did not pass. See warning for reason.")
+  if (means) {
+    pop$pheno_val$pheno_mean
+  } else{
+    pop$pheno_val$pheno_obs
+  }
   
-  # If geno is a list, recombine
-  if (is.list(geno))
-    geno <- do.call("cbind", geno)
-  
-  ## Iterate over traits in the genetic model
-  geno_val <- lapply(X = genome$gen_model, FUN = function(qtlmod) {
-    qtl_geno <- pull_genotype(genome = genome, geno = geno, loci = qtlmod$qtl_name)
-    # Subtract 1
-    qtl_geno1 <- qtl_geno - 1
-    
-    # Additive eff
-    bv <- qtl_geno1 %*% as.matrix(qtlmod$add_eff)
-    # Dominance - first convert matrix to dominance matrix, then calculate deviations
-    qtl_dom_geno <- ifelse(qtl_geno1 != 0, 0, 1)
-    dd <- qtl_dom_geno %*% as.matrix(qtlmod$dom_eff)
-    
-    # Sum
-    bv + dd })
-  
-  # Bind columns
-  geno_val1 <- do.call("cbind", geno_val)
-  
-  # Add trait names
-  colnames(geno_val1) <- paste("trait", seq(ncol(geno_val1)), sep = "")
-  
-  # Convert the row.names to a column and return the data.frame
-  data.frame(ind = row.names(geno_val1), geno_val1, row.names = NULL, stringsAsFactors = FALSE) %>%
-    # Sort on individual name
-    arrange(ind)
-  
-} # Close the function
+}
+
+#' @describeIn pheno
+#' 
+#' @export
+#' 
+gv <- function(pop) {
+  # Error
+  stopifnot(class(pop) == "pop")
+  pop$geno_val
+}
+
+#' @describeIn pheno
+#' 
+#' @export
+#' 
+pgv <- function(pop) {
+  # Error
+  stopifnot(class(pop) == "pop")
+  pop$pred_val
+}
+
+
