@@ -16,6 +16,7 @@ Imports:
     tidyr,
     stringr,
     qtl,
+    simcross,
     purrr,
     abind,
     rrBLUP,
