@@ -384,8 +384,8 @@ subset_pop <- function(pop, individual) {
 #' pop2 <- sim_pop(genome = genome, n.ind = 100)
 #' 
 #' # Subset the populations
-#' pop1 <- subset_pop(pop1, indnames(pop)[1:5])
-#' pop2 <- subset_pop(pop2, indnames(pop)[20:25])
+#' pop1 <- subset_pop(pop1, indnames(pop1)[1:5])
+#' pop2 <- subset_pop(pop2, indnames(pop2)[20:25])
 #' 
 #' # Combine
 #' combine_pop(list(pop1, pop2))

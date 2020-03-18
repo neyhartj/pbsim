@@ -249,7 +249,7 @@ calc_exp_genvar <- function(genome, pedigree, founder.pop, crossing.block) {
     }
     
     # The expected mu is simply the mean of the genotypic values of the two parents
-    exp_mu_j <- colMeans(founder.pop$geno_val[founder.pop$geno_val$ind %in% pars,-1,drop = F])
+    exp_mu_j <- colMeans(founder.pop$geno_val[founder.pop$geno_val$ind %in% pars,-1,drop = FALSE])
     
     ## Add to the lists
     exp_mu[[j]] <- exp_mu_j
@@ -424,7 +424,7 @@ pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.bl
   
   # Replace the expected mu with the predicted mu
   for (i in seq_len(nrow(predicted_genvar))) {
-    predicted_genvar$exp_mu[i] <- mean(pgvs[pgvs$ind %in% predicted_genvar[i,1:2,drop = T],predicted_genvar$trait[i]])
+    predicted_genvar$exp_mu[i] <- mean(pgvs[pgvs$ind %in% predicted_genvar[i,1:2,drop = TRUE],predicted_genvar$trait[i]])
   }
   
   

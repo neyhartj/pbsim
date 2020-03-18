@@ -60,7 +60,7 @@ parents <- paste("line", seq(10), sep = "")
 cb <- sim_crossing_block(parents = parents, n.crosses = 3)
 
 # Generate 3 crosses randomly, while using parents only once.
-cb <- sim_crossing_block(parents = parents, n.crosses = 3, use.parents.once = T)
+cb <- sim_crossing_block(parents = parents, n.crosses = 3, use.parents.once = TRUE)
 
 # Generate a chain of crosses
 cb <- sim_crossing_block(parents = parents, scheme = "chain")

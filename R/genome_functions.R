@@ -619,9 +619,9 @@ find_markerpos <- function(genome, marker) {
 #' genome <- sim_genome(len, n.mar)
 #' 
 #' # Sample marker names to lookup
-#' sample_markers <- sample(markernames(genome, include.qtl = T), size = 3)
+#' sample_markers <- sample(markernames(genome, include.qtl = TRUE), size = 3)
 #' 
-#' find_proxmarkers(genome = genome, marker = sample_markers, include.qtl = T)
+#' find_proxmarkers(genome = genome, marker = sample_markers, include.qtl = TRUE)
 #' 
 #' @importFrom qtl map2table
 #' @importFrom qtl sim.cross

@@ -34,7 +34,7 @@ genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
 pop <- sim_pop(genome = genome, n.ind = 200)
 
 # Sample 2 pairs of QTL
-loci.list <- replicate(n = 2, sample(qtlnames(genome), 2), simplify = F)
+loci.list <- replicate(n = 2, sample(qtlnames(genome), 2), simplify = FALSE)
 
 # Calculate haplotype frequencies
 calc_haplotype_freq(genome, pop, loci.list)
