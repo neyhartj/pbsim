@@ -37,8 +37,7 @@ parents. Here are the rules used for generating different crossing blocks.
 
 \describe{
   \item{\code{scheme = "random"}}{A \code{data.frame} is first constructed with
-  all possible pairwise combinations of \code{parents} and \code{second.parents}
-  (see below for handling of \code{second.parents}). Self-crosses and reciprocal
+  all possible pairwise combinations of \code{parents}. Self-crosses and reciprocal
   crosses are removed and \code{n.crosses} crosses are randomly sampled. If
   \code{use.parents.once = TRUE}, crosses are selected such that any one parent
   is used only once.}
@@ -66,12 +65,5 @@ cb <- sim_crossing_block(parents = parents, n.crosses = 3, use.parents.once = T)
 # Generate a chain of crosses
 cb <- sim_crossing_block(parents = parents, scheme = "chain")
 
-## Use another vector of parents
-second.parents <- paste("line", seq(11, 20), sep = "")
-
-cb <- sim_crossing_block(parents = parents, second.parents = second.parents, n.crosses = 3)
-
-# When using scheme = "chain", second.parents is ignored
-cb <- sim_crossing_block(parents = parents, second.parents = second.parents, scheme = "chain")
 
 }

@@ -155,8 +155,10 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
 #' 
 #' @param genome An object of class \code{genome}.
 #' @param pop A population.
-#' @param measure The type of LD measurement.
 #' @param loci A vector of locus names for which pairwise LD should be calculated.
+#' @param measure The type of LD measurement. Can be \code{"r2"} for the squared Pearson
+#' correlation coefficient or \code{"D"} for the typical calculation using the
+#' frequency of alleles and haplotypes.
 #' 
 #' @return 
 #' A \code{matrix} of pairwise LD values.
@@ -181,7 +183,7 @@ calc_haplotype_freq <- function(genome, pop, loci.list) {
 #' @export
 #' 
 #' 
-calc_LD <- function(genome, pop, measure = c("r", "D"), loci) {
+calc_LD <- function(genome, pop, loci, measure = c("r", "D")) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))

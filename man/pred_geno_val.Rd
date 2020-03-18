@@ -56,7 +56,7 @@ genome <- sim_gen_model(genome = genome, qtl.model = qtl.model,
 founder_pop <- sim_founders(genome, n.str = 8)
 founder_pop <- sim_phenoval(pop = founder_pop, h2 = 0.5)
 
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 
 # Extract the founder names
 parents <- indnames(founder_pop)
@@ -65,13 +65,14 @@ parents <- indnames(founder_pop)
 cb <- sim_crossing_block(parents = parents, n.crosses = 5)
 
 # Simulate the populations according to the crossing block
-pop <- sim_family_cb(genome = genome, pedigree = ped, founder_pop = founder_pop, 
-                     crossing_block = cb)
+pop <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder_pop, 
+                     crossing.block = cb)
                      
 # Use the founders as a training population for the progeny
 pop <- pred_geno_val(genome = genome, training.pop = founder_pop, candidate.pop = pop)
 
 ## Alternatively, predict marker effects first, then predict genotypic values
+## This is faster.
 training.pop <- pred_mar_eff(genome = genome, training.pop = founder_pop)
 pop <- pred_geno_val(genome = genome, training.pop = founder_pop, candidate.pop = pop)
                      

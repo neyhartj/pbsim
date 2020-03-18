@@ -23,13 +23,3 @@ Haploids can be checked by using the \code{\link{is_haploid}} function, and
 can be converted to a standard genotype matrix by using the 
 \code{\link{haploid_to_geno}} function.
 }
-\examples{
-
-data("s2_cap_haploid")
-is_haploid(s2_cap_haploid)
-
-
-data("s2_cap_haploid")
-geno <- haploid_to_geno(s2_cap_haploid)
-
-}

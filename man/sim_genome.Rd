@@ -29,6 +29,8 @@ markers per chromosome, and the genetic map.
 Creates a list containing information on a simulated genome
 }
 \examples{
+
+\dontrun{
 n.mar  <- c(505, 505, 505)
 len <- c(120, 130, 140)
 
@@ -51,6 +53,7 @@ sim_genome(map = exp_map)
 # This will work
 names(exp_map) <- 1
 sim_genome(map = exp_map)
+}
 
 
 }

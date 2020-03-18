@@ -281,27 +281,22 @@ genotype <- function(genome, pop, error.rate = 0) {
 #' 
 #' @examples 
 #' 
-#' # Load some historic data
-#' data("s2_cap_genos")
-#' data("s2_snp_info")
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
 #' 
-#' # Create a genome with genetic architecture
-#' len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
-#' n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
-#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' genome <- sim_genome(len, n.mar)
 #' 
-#' genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#'                         
+#' # Simulate the population
+#' pop <- sim_pop(genome = genome, n.ind = 100)
 #' 
-#' # Simulate a a trait with 15 QTL
-#' qtl.model <- matrix(nrow = 15, ncol = 4)
-#' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
-#' 
-#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
-#' 
-#' individual <- c("2ND27380", "06WA-406.6")
-#' 
-#' pop_subset <- subset_pop(pop = pop, individual = individual)
+#' # Subset the population
+#' subset_pop(pop, c("ind001", "ind100"))
 #' 
 #' @import dplyr
 #' 
@@ -370,6 +365,31 @@ subset_pop <- function(pop, individual) {
 #' @details 
 #' If \code{pheno_val} is present in the \code{pop}, the variance components are
 #' dropped.
+#' 
+#' @examples 
+#' 
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
+#' 
+#' genome <- sim_genome(len, n.mar)
+#' 
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#'                         
+#' # Simulate two populations
+#' pop1 <- sim_pop(genome = genome, n.ind = 100)
+#' pop2 <- sim_pop(genome = genome, n.ind = 100)
+#' 
+#' # Subset the populations
+#' pop1 <- subset_pop(pop1, indnames(pop)[1:5])
+#' pop2 <- subset_pop(pop2, indnames(pop)[20:25])
+#' 
+#' # Combine
+#' combine_pop(list(pop1, pop2))
+#' 
 #' 
 #' @import dplyr
 #' @importFrom purrr pmap
@@ -484,32 +504,38 @@ combine_pop <- function(pop_list) {
 #' 
 #' @examples 
 #' 
-#' # Load some historic data
-#' data("s2_cap_genos")
-#' data("s2_snp_info")
+#' # Simulate a genome
+#' n.mar  <- c(505, 505, 505)
+#' len <- c(120, 130, 140)
 #' 
-#' # Create a genome with genetic architecture
-#' len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
-#' n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
-#' map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+#' genome <- sim_genome(len, n.mar)
 #' 
-#' genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+#' # Simulate a quantitative trait influenced by 50 QTL
+#' qtl.model <- matrix(NA, 50, 4)
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+#'                         add.dist = "geometric", max.qtl = 50)
+#'                         
+#' # Simulate the population
+#' pop <- sim_pop(genome = genome, n.ind = 100)
+#' # Select randomly
+#' select_pop(pop = pop, intensity = 0.1, type = "random")
 #' 
-#' # Simulate a a trait with 15 QTL
-#' qtl.model <- matrix(nrow = 15, ncol = 4)
+#' # Phenotype the population
+#' pop <- sim_phenoval(pop = pop, h2 = 0.5)
+#' # Select on phenotypes
+#' select_pop(pop = pop, intensity = 0.1, type = "phenotypic")
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
+#' # Predict genotypic values
+#' pop <- pred_geno_val(genome = genome, training.pop = pop, candidate.pop = pop)
+#' # Select on pgvs
+#' select_pop(pop = pop, intensity = 0.1, type = "genomic")
 #' 
-#' pop <- create_pop(genome = genome, geno = s2_cap_genos)
-#' pop <- sim_phenoval(pop, h2 = 0.5)
-#' 
-#' pop_selected <- select_pop(pop = pop, intensity = 50, index = 1)
 #' 
 #' @import dplyr
 #' 
 #' @export 
 #' 
-select_pop <- function(pop, intensity = 0.1, index, type = c("phenotypic", "genomic", "random")) {
+select_pop <- function(pop, intensity = 0.1, index = 1, type = c("phenotypic", "genomic", "random")) {
   
   # Error handling
   # Make sure pop inherits the class "pop"
@@ -546,7 +572,7 @@ select_pop <- function(pop, intensity = 0.1, index, type = c("phenotypic", "geno
     
     # Check for genotypic values
     if (is.null(pop$pheno_val))
-      stop("Phenotypic selection cannot proceed within phenotypes in the population.")
+      stop("Phenotypic selection cannot proceed without phenotypic information on the population.")
     
     # Recode the value
     selected <- pop$pheno_val$pheno_mean
@@ -586,7 +612,7 @@ select_pop <- function(pop, intensity = 0.1, index, type = c("phenotypic", "geno
     
     # Check for PGVs
     if (is.null(pop$pred_val))
-      stop("Genomic selection cannot proceed within predicted genotypic values in the population.")
+      stop("Genomic selection cannot proceed withouit predicted genotypic values for the population.")
       
     # Recode the value
     selected <- pop$pred_val

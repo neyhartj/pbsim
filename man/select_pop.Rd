@@ -4,7 +4,7 @@
 \alias{select_pop}
 \title{Make selections from a population}
 \usage{
-select_pop(pop, intensity = 0.1, index, type = c("phenotypic",
+select_pop(pop, intensity = 0.1, index = 1, type = c("phenotypic",
   "genomic", "random"))
 }
 \arguments{
@@ -40,25 +40,31 @@ are randomly chosen.
 }
 \examples{
 
-# Load some historic data
-data("s2_cap_genos")
-data("s2_snp_info")
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
 
-# Create a genome with genetic architecture
-len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
-n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
-map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+genome <- sim_genome(len, n.mar)
 
-genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+                        
+# Simulate the population
+pop <- sim_pop(genome = genome, n.ind = 100)
+# Select randomly
+select_pop(pop = pop, intensity = 0.1, type = "random")
 
-# Simulate a a trait with 15 QTL
-qtl.model <- matrix(nrow = 15, ncol = 4)
+# Phenotype the population
+pop <- sim_phenoval(pop = pop, h2 = 0.5)
+# Select on phenotypes
+select_pop(pop = pop, intensity = 0.1, type = "phenotypic")
 
-genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
+# Predict genotypic values
+pop <- pred_geno_val(genome = genome, training.pop = pop, candidate.pop = pop)
+# Select on pgvs
+select_pop(pop = pop, intensity = 0.1, type = "genomic")
 
-pop <- create_pop(genome = genome, geno = s2_cap_genos)
-pop <- sim_phenoval(pop, h2 = 0.5)
-
-pop_selected <- select_pop(pop = pop, intensity = 50, index = 1)
 
 }

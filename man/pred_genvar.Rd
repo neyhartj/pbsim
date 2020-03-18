@@ -59,7 +59,7 @@ training.pop <- sim_phenoval(founder.pop, h2 = 0.8)
 cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
 
 # Create a pedigree with 100 individuals selfed to the F_3 generation
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 
 pred_genvar(genome = genome, pedigree = ped, training.pop = training.pop, 
             founder.pop = founder.pop, crossing.block = cb)

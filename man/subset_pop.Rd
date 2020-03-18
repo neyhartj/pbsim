@@ -20,26 +20,21 @@ dropped.
 }
 \examples{
 
-# Load some historic data
-data("s2_cap_genos")
-data("s2_snp_info")
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
 
-# Create a genome with genetic architecture
-len <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, max)
-n_mar <- tapply(s2_snp_info$cM_pos, s2_snp_info$chrom, length)
-map <- lapply(split(s2_snp_info, s2_snp_info$chrom), function(chr) structure(chr$cM_pos, names = chr$rs) )
+genome <- sim_genome(len, n.mar)
 
-genome <- sim_genome(len = len, n.mar = n_mar, map = map)
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+                        
+# Simulate the population
+pop <- sim_pop(genome = genome, n.ind = 100)
 
-# Simulate a a trait with 15 QTL
-qtl.model <- matrix(nrow = 15, ncol = 4)
-
-genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", max.qtl = 15)
-
-pop <- create_pop(genome = genome, geno = s2_cap_genos)
-
-individual <- c("2ND27380", "06WA-406.6")
-
-pop_subset <- subset_pop(pop = pop, individual = individual)
+# Subset the population
+subset_pop(pop, c("ind001", "ind100"))
 
 }

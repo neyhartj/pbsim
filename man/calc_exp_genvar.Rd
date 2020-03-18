@@ -43,7 +43,7 @@ founder.pop <- sim_founders(genome = genome, n.str = 8)
 cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
 
 # Create a pedigree with 100 individuals selfed to the F_3 generation
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 
 calc_exp_genvar(genome = genome, pedigree = ped, founder.pop = founder.pop, 
                 crossing.block = cb)

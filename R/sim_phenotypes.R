@@ -260,6 +260,8 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
 #' 
 #' @examples 
 #' 
+#' \dontrun{
+#' 
 #' # Load some historic data
 #' data("s2_cap_genos")
 #' data("s2_snp_info")
@@ -292,6 +294,8 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
 #' # Simulate a trial
 #' pop_pheno <- sim_trial(pop = exp_pop, h2 = 0.5, n.env = 3, n.rep = 1,
 #'   check.pop = check_pop, check.rep = 3)
+#'   
+#' }
 #'   
 #' @import dplyr
 #' @import tidyr

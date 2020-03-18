@@ -16,3 +16,29 @@ Combine a list of populations
 If \code{pheno_val} is present in the \code{pop}, the variance components are
 dropped.
 }
+\examples{
+
+# Simulate a genome
+n.mar  <- c(505, 505, 505)
+len <- c(120, 130, 140)
+
+genome <- sim_genome(len, n.mar)
+
+# Simulate a quantitative trait influenced by 50 QTL
+qtl.model <- matrix(NA, 50, 4)
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
+                        add.dist = "geometric", max.qtl = 50)
+                        
+# Simulate two populations
+pop1 <- sim_pop(genome = genome, n.ind = 100)
+pop2 <- sim_pop(genome = genome, n.ind = 100)
+
+# Subset the populations
+pop1 <- subset_pop(pop1, indnames(pop)[1:5])
+pop2 <- subset_pop(pop2, indnames(pop)[20:25])
+
+# Combine
+combine_pop(list(pop1, pop2))
+
+
+}

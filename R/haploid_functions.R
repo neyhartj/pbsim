@@ -11,10 +11,6 @@
 #' can be converted to a standard genotype matrix by using the 
 #' \code{\link{haploid_to_geno}} function.
 #' 
-#' @examples 
-#' 
-#' data("s2_cap_haploid")
-#' is_haploid(s2_cap_haploid)
 #' 
 #' @export
 #' 
@@ -36,12 +32,6 @@ is_haploid <- function(geno) {
 
 
 #' @rdname is_haploid
-#' 
-#' @examples 
-#' 
-#' data("s2_cap_haploid")
-#' geno <- haploid_to_geno(s2_cap_haploid)
-#' 
 #' @export
 #' 
 haploid_to_geno <- function(geno) {

@@ -24,7 +24,7 @@
 #' # Create a random population
 #' pop <- sim_pop(genome = genome, n.ind = 200)
 #' 
-#' check_geno()
+#' check_geno(genome, pop$geno)
 #' 
 #' @export
 #' 

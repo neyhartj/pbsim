@@ -37,11 +37,3 @@ are available for partial selfing, backcrossing, and random mating.
 \details{
 
 }
-\examples{
-# Create a BC2F5 family
-ped <- sim_pedigree(n.ind = 50, bcpar = 1, n.bcgen = 2, n.selfgen = 4)
-
-# Create a F3 family
-ped <- sim_pedigree(n.ind = 50, n.bcgen = 0, n.selfgen = 2)
-
-}

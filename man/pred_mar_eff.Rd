@@ -6,7 +6,7 @@
 \usage{
 pred_mar_eff(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA",
   "BL", "BayesB", "BayesC"), n.iter = 1500, burn.in = 500, thin = 5,
-  save.at = "")
+  save.at = ".")
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -51,7 +51,7 @@ genome <- sim_gen_model(genome = genome, qtl.model = qtl.model,
 founder_pop <- sim_founders(genome, n.str = 8)
 founder_pop <- sim_phenoval(pop = founder_pop, h2 = 0.5)
 
-ped <- sim_pedigree(n.ind = 100, n.selfgen = 2)
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 
 # Extract the founder names
 parents <- indnames(founder_pop)

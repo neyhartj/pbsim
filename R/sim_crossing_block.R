@@ -21,8 +21,7 @@
 #' 
 #' \describe{
 #'   \item{\code{scheme = "random"}}{A \code{data.frame} is first constructed with
-#'   all possible pairwise combinations of \code{parents} and \code{second.parents}
-#'   (see below for handling of \code{second.parents}). Self-crosses and reciprocal
+#'   all possible pairwise combinations of \code{parents}. Self-crosses and reciprocal
 #'   crosses are removed and \code{n.crosses} crosses are randomly sampled. If
 #'   \code{use.parents.once = TRUE}, crosses are selected such that any one parent
 #'   is used only once.}
@@ -54,13 +53,6 @@
 #' # Generate a chain of crosses
 #' cb <- sim_crossing_block(parents = parents, scheme = "chain")
 #' 
-#' ## Use another vector of parents
-#' second.parents <- paste("line", seq(11, 20), sep = "")
-#' 
-#' cb <- sim_crossing_block(parents = parents, second.parents = second.parents, n.crosses = 3)
-#' 
-#' # When using scheme = "chain", second.parents is ignored
-#' cb <- sim_crossing_block(parents = parents, second.parents = second.parents, scheme = "chain")
 #' 
 #' @importFrom arrangements combinations
 #' 
@@ -124,7 +116,7 @@ sim_crossing_block <- function(parents, n.crosses = NULL, type = c("2way", "4way
   } else if (scheme == "chain") {
     
     # Give a warning for use parents once
-    warning('use.parents.once is ignored when scheme == "chain".')
+    if (use.parents.once) warning('use.parents.once is ignored when scheme == "chain".')
     
     # Chain scheme
     chosen_crosses <- cbind(

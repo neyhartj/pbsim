@@ -17,6 +17,8 @@
 #' markers per chromosome, and the genetic map.
 #' 
 #' @examples
+#' 
+#' \dontrun{
 #' n.mar  <- c(505, 505, 505)
 #' len <- c(120, 130, 140)
 #' 
@@ -39,6 +41,7 @@
 #' # This will work
 #' names(exp_map) <- 1
 #' sim_genome(map = exp_map)
+#' }
 #' 
 #' 
 #' @importFrom qtl sim.map
