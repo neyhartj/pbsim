@@ -143,7 +143,7 @@ The genetic architecture of multiple traits can be simulated by
 ## Generate a pedigree
 
 ```{r}
-ped <- sim_pedigree(n.ind = 30, n.bcgen = 0, n.selfgen = 2)
+ped <- sim_pedigree(n.ind = 30, n.bcgen = 0, n.selfgen = 2, n.par = 2)
 
 ```
 
