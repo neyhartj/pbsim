@@ -478,6 +478,13 @@ combine_pop <- function(pop_list) {
     
   }
   
+  # Combine marker genotypess, if present
+  if ("marker_geno" %in% element_names) {
+    
+    new_pop$marker_geno <- do.call("rbind", lapply(pop_list, "[[", "marker_geno"))
+    
+  }
+  
   # Return the new pop
   return(new_pop)
   

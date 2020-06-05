@@ -58,6 +58,11 @@ ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
                         crossing.block = cb)
                         
+# Create many F_6 families, genotyped at the F_3
+fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
+                        crossing.block = cb, marker.gen = 2)
+
+                        
 ## 4-way population
 
 # Generate a crossing block with 5 crosses
