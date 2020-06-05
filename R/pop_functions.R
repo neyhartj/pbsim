@@ -359,6 +359,13 @@ subset_pop <- function(pop, individual) {
     new_pop$pred_val <- filter(pop$pred_val, ind %in% individual)
     
   }
+  
+  # Combine marker genotypes, if present
+  if ("marker_geno" %in% element_names) {
+    
+    new_pop$marker_geno <- do.call("rbind", lapply(pop_list, "[[", "marker_geno"))
+    
+  }
     
   # Return the population
   return(new_pop)
@@ -478,7 +485,7 @@ combine_pop <- function(pop_list) {
     
   }
   
-  # Combine marker genotypess, if present
+  # Combine marker genotypes, if present
   if ("marker_geno" %in% element_names) {
     
     new_pop$marker_geno <- do.call("rbind", lapply(pop_list, "[[", "marker_geno"))
