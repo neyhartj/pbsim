@@ -17,6 +17,9 @@
 #'   at the end of selfing. Doubled-haploids are generated at the last generation
 #'   of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
 #'   lines are induced after the \emph{F_2}).}
+#'   \item{\code{marker.gen}}{Numeric indicating the selfing generation at which to genotype
+#'   individuals in the family. For instance, if \code{marker.gen = 2}, individuals
+#'   are genotyped at the F_3 stage.}
 #'   \item{\code{m}}{The crossover interference parameter. See 
 #'   \code{\link[simcross]{sim_from_pedigree}} for more information. }
 #'   \item{\code{p}}{The proportion of crosses from non-interference process.
@@ -50,6 +53,11 @@
 #' ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 #' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
 #' 
+#' # Create an F_6 family, genotyped at the F_3
+#' ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 5)
+#' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop,
+#'                   marker.gen = 2)
+#' 
 #' # Create a pedigree with 100 RIL individuals
 #' ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = Inf)
 #' fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
@@ -80,10 +88,9 @@
 #' 
 #' 
 #'                   
+#' @import AlphaSimR
 #' @importFrom simcross check_pedigree
 #' @importFrom mpMap2 detailedPedigree simulateMPCross
-#' @importFrom stringr str_pad
-#' @importFrom stringr str_c
 #' @importFrom qtl sim.cross
 #' 
 #' @export
@@ -122,6 +129,16 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
   # For doubled-haploids
   dh <- ifelse(is.null(other.args$dh), FALSE, other.args$dh)
   
+  # Marker genotyping generations
+  # Set to the max pedigree generation
+  marker_gen <- other.args$marker.gen
+  # Marker gen 
+  if (!is.null(marker_gen)) {
+    if (marker_gen <= 0) stop ("marker.gen cannot be less than or equal to 0.")
+  } else {
+    marker_gen <- max(pedigree$gen)
+  }
+  
   # Extract the individual ids of the finals
   final_id <- subset(pedigree, gen == max(gen))$id
   
@@ -135,8 +152,8 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
   cycle_num <- ifelse(is.null(other.args$cycle.num), 1, other.args$cycle.num)
   
   # New names
-  new_names <- str_c("C", cycle_num, "_", max_gen, str_pad(family_num, width = 3, pad = 0), 
-                     "-", str_pad(seq_len(n_ind), width = 3, pad = 0)) 
+  new_names <- paste0("C", cycle_num, "_", max_gen, formatC(family_num, width = 3, flag = "0"), 
+                      "-", formatC(seq_len(n_ind), width = 3, flag = "0"))
   
   
   # Determine the selfing level
@@ -149,33 +166,83 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
   m <- ifelse(is.null(other.args$m), 0, other.args$m)
   p <- ifelse(is.null(other.args$p), 1, other.args$p)
   
+  # Extract founder genotypes
+  founder_geno <- do.call("cbind", founder.pop$geno)
+  
+  
   if (selfing == "finite") {
     
-    ## Option 1
-    # Turn the pedigree into a detailedPedigree object
-    det_ped <- detailedPedigree(lineNames = as.character(pedigree$id), mother = pedigree$mom, 
-                                father = pedigree$dad, initial = seq_len(n_founders), 
-                                observed = pedigree$observed, selfing = selfing)
+    ## Control flow for marker_gen
+    if ( marker_gen == max(pedigree$gen) ) {
     
-    # Simulate using mpMap2
-    cross_sim <- simulateMPCross(map = map, pedigree = det_ped, mapFunction = map.function)
+      ## Option 1
+      # Turn the pedigree into a detailedPedigree object
+      det_ped <- detailedPedigree(lineNames = as.character(pedigree$id), mother = pedigree$mom, 
+                                  father = pedigree$dad, initial = seq_len(n_founders), 
+                                  observed = pedigree$observed, selfing = selfing)
+      
+      # Simulate using mpMap2
+      cross_sim <- simulateMPCross(map = map, pedigree = det_ped, mapFunction = map.function)
+      
+      # Extract the progeny genotypes
+      prog_multipoint <- cross_sim@geneticData@.Data[[1]]@finals
+      prog_multipoint[prog_multipoint > n_founders] <- NA
+      
+      ## Convert the progeny genotypes to the parental states
+      prog_geno <- t(apply(X = prog_multipoint, MARGIN = 1, FUN = function(prog) {
+        founder_geno[cbind(prog, seq(ncol(founder_geno)))] }))
+      # Replace NA with het
+      prog_geno[is.na(prog_geno)] <- 1
+      # Filler
+      prog_marker_geno <- NULL
+      
+    } else if ( marker_gen < max(pedigree$gen) ) {
     
-    # Extract the progeny genotypes
-    prog_multipoint <- cross_sim@geneticData@.Data[[1]]@finals
-    prog_multipoint[prog_multipoint > n_founders] <- NA
+      # Create a founder pop from the parents of the family
+      founderPop <- newMapPop(genMap = structure(genome$map, class = "numeric"), haplotypes = founder.pop$geno,
+                              inbred = TRUE, ploidy = 2)
+      # Simulation parameter object
+      simParamTemp <- SimParam$new(founderPop = founderPop)
+      parentPop <- newPop(rawPop = founderPop, simParam = simParamTemp)
+      
+      
+      ## Split by number of founders
+      ## 2
+      if (n_founders == 2) {
+
+        # Create the cross - F1
+        pop1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = n_ind, simParam = simParamTemp)  
+        
+      ## 4
+      } else {
+        
+        # Create the first cross, then the second
+        cross1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = 1, simParam = simParamTemp)
+        cross2 <- makeCross(pop = parentPop, crossPlan = cbind(3,4), nProgeny = 1, simParam = simParamTemp)
+        # F1
+        pop1 <- makeCross2(females = cross1, males = cross2, nProgeny = n_ind, crossPlan = cbind(1,1),
+                           simParam = simParamTemp)
+        
+      }
+
+      # Inbreed to marker generation
+      for (s in seq(2, marker_gen + 1)) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
+      # Genotype
+      prog_marker_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
+      # continue to inbreed
+      for (s in seq(s+1, max(pedigree$gen))) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
+      
+      # Get segregating sites
+      prog_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
+      dimnames(prog_marker_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
+      
+      
+      
+    } else {
+      stop ("marker.gen cannot be greater than the inbreeding generation.")
+      
+    }
     
-    
-    # ## Option 2
-    # # Generate cross-over data
-    # xo_data <- sim_from_pedigree_allchr(pedigree = pedigree, map = map, m = m, p = p)
-    # 
-    # # Simulate DH if called for
-    # if (dh) {
-    #   xo_data <- induce_dh(xodat = xo_data, pedigree = pedigree)
-    # }
-    # 
-    # # Simulate genotypic data
-    # prog_genos <- convert2geno_allchr(xodat = xo_data, map = map, id = final_id)
     
   } else {
     
@@ -201,27 +268,27 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
                              map.function = map.function)
       
       prog_multipoint <- do.call("cbind", lapply(X = cross_sim$geno, FUN = "[[", "data"))
-
       
     }
     
+    ## Convert the progeny genotypes to the parental states
+    prog_geno <- t(apply(X = prog_multipoint, MARGIN = 1, FUN = function(prog) {
+      founder_geno[cbind(prog, seq(ncol(founder_geno)))] }))
+    # Replace NA with het
+    prog_geno[is.na(prog_geno)] <- 1
+    # Filler
+    prog_marker_geno <- NULL
+    
   }
   
-  # Extract founder genotypes
-  founder_geno <- do.call("cbind", founder.pop$geno)
-  
-  ## Convert the progeny genotypes to the parental states
-  prog_geno <- t(apply(X = prog_multipoint, MARGIN = 1, FUN = function(prog) {
-    founder_geno[cbind(prog, seq(ncol(founder_geno)))] }))
-  # Replace NA with het
-  prog_geno[is.na(prog_geno)] <- 1
   
   dimnames(prog_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
     
-    
   # Create the pop
-  create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
-
+  pop_out <- create_pop(genome = genome, geno = prog_geno, ignore.gen.model = ignore.gen.model)
+  # Add markers, if available
+  pop_out$marker_geno <- prog_marker_geno
+  return(pop_out)
   
 } # Close the function
 

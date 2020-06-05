@@ -4,9 +4,15 @@
 \alias{pred_mar_eff}
 \title{Predict marker effects in a training population}
 \usage{
-pred_mar_eff(genome, training.pop, method = c("RRBLUP", "BRR", "BayesA",
-  "BL", "BayesB", "BayesC"), n.iter = 1500, burn.in = 500, thin = 5,
-  save.at = ".")
+pred_mar_eff(
+  genome,
+  training.pop,
+  method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"),
+  n.iter = 1500,
+  burn.in = 500,
+  thin = 5,
+  save.at = "."
+)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

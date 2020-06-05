@@ -4,8 +4,14 @@
 \alias{sim_family}
 \title{Simulate a family from a pedigree}
 \usage{
-sim_family(genome, pedigree, founder.pop, map.function = c("haldane",
-  "kosambi", "c-f", "morgan"), ignore.gen.model = FALSE, ...)
+sim_family(
+  genome,
+  pedigree,
+  founder.pop,
+  map.function = c("haldane", "kosambi", "c-f", "morgan"),
+  ignore.gen.model = FALSE,
+  ...
+)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -35,6 +41,9 @@ Other arguments can be passed to internal functions in \code{sim_family}:
   at the end of selfing. Doubled-haploids are generated at the last generation
   of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
   lines are induced after the \emph{F_2}).}
+  \item{\code{marker.gen}}{Numeric indicating the selfing generation at which to genotype
+  individuals in the family. For instance, if \code{marker.gen = 2}, individuals
+  are genotyped at the F_3 stage.}
   \item{\code{m}}{The crossover interference parameter. See 
   \code{\link[simcross]{sim_from_pedigree}} for more information. }
   \item{\code{p}}{The proportion of crosses from non-interference process.
@@ -64,6 +73,11 @@ founder.pop <- sim_founders(genome, pat.freq = c(0, 1))
 # Create a pedigree with 100 individuals selfed to the F_3 generation
 ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop)
+
+# Create an F_6 family, genotyped at the F_3
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 5)
+fam <- sim_family(genome = genome, pedigree = ped, founder.pop = founder.pop,
+                  marker.gen = 2)
 
 # Create a pedigree with 100 RIL individuals
 ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = Inf)

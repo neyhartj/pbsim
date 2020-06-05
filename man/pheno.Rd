@@ -60,7 +60,7 @@ gv(pop)
 ## Extract phenotypic values
 pheno(pop)
 
-## Try to get predicted phenotypic values. There are none, so this returns \\code{NULL}.
+## Try to get predicted phenotypic values. There are none, so this returns \code{NULL}.
 pgv(pop)
 
 # Predict genotypic values

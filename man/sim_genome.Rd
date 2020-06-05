@@ -4,8 +4,7 @@
 \alias{sim_genome}
 \title{Create a simulated genome}
 \usage{
-sim_genome(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim",
-  "hypred"))
+sim_genome(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "hypred"))
 }
 \arguments{
 \item{len}{A vector specifying the chromosome lengths (in cM).}

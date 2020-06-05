@@ -4,9 +4,16 @@
 \alias{pred_geno_val}
 \title{Predict genotypic values using genomewide markers}
 \usage{
-pred_geno_val(genome, training.pop, candidate.pop, method = c("RRBLUP",
-  "BRR", "BayesA", "BL", "BayesB", "BayesC"), n.iter = 1500,
-  burn.in = 500, thin = 5, save.at = "")
+pred_geno_val(
+  genome,
+  training.pop,
+  candidate.pop,
+  method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"),
+  n.iter = 1500,
+  burn.in = 500,
+  thin = 5,
+  save.at = ""
+)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}

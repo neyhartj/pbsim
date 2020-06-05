@@ -260,9 +260,18 @@ genotype <- function(genome, pop, error.rate = 0) {
   # Get the names of the markers
   marker_names <- markernames(genome)
   
-  # Combine the genos per chromosome
-  geno <- do.call("cbind", pop$geno)
+  ## If the pop contains an object called "marker_geno," export those instead of the
+  ## actual loci genotypes
+  if (!is.null(pop$marker_geno)) {
+    geno <- pop$marker_geno
+    
+  } else {
+    # Combine the genos per chromosome
+    geno <- do.call("cbind", pop$geno)
+    
+  }
   
+
   # Subset only the markers and subtract 1
   subset(x = geno, select = marker_names, drop = FALSE) - 1
   
