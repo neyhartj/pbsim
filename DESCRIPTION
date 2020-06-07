@@ -24,6 +24,7 @@ Imports:
     Matrix,
     methods,
     mpMap2,
+    AlphaSimR,
     arrangements
 Suggests: 
     knitr,
