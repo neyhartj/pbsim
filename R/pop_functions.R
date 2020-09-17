@@ -83,7 +83,7 @@ create_pop <- function(genome, geno, ignore.gen.model = FALSE) {
   
   
   # Sort the genos on individual names
-  geno <- geno[order(row.names(geno)),]
+  geno <- geno[order(row.names(geno)),,drop = FALSE]
   
   # Split the geno matrix into chromosomes
   geno_split <- split_geno(genome = genome, geno = geno, ignore.gen.model = ignore.gen.model)

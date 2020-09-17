@@ -33,15 +33,16 @@ Simulate multiple families from a crossing block
 \examples{
 
 # Simulate a genome
-n.mar  <- c(505, 505, 505)
-len <- c(120, 130, 140)
+n.mar  <- rep(500, 7)
+len <- runif(n = 7, min = 140, 170)
 
 genome <- sim_genome(len, n.mar)
 
-# Simulate a quantitative trait influenced by 50 QTL
-qtl.model <- matrix(NA, 50, 4)
+# Simulate a quantitative trait influenced by 200 QTL
+L <- 200
+qtl.model <- matrix(NA, L, 4)
 genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, 
-                        add.dist = "geometric", max.qtl = 50)
+                        add.dist = "geometric", max.qtl = L)
 
 # Simulate the genotypes for 8 founders
 founder.pop <- sim_founders(genome = genome, n.str = 8)
@@ -49,7 +50,7 @@ founder.pop <- sim_founders(genome = genome, n.str = 8)
 ## 2-way population
 
 # Generate a crossing block with 5 crosses
-cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5)
+cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 25)
 
 # Create a bi-parental pedigree with 100 individuals selfed to the F_3 generation
 ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
@@ -57,6 +58,9 @@ ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 2)
 # Simulate a group of families from the crossing block
 fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
                         crossing.block = cb)
+                        
+# Create a bi-parental pedigree with 100 individuals selfed to the F_3 generation
+ped <- sim_pedigree(n.par = 2, n.ind = 100, n.selfgen = 5)
                         
 # Create many F_6 families, genotyped at the F_3
 fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 

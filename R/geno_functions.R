@@ -105,8 +105,7 @@ split_geno <- function(genome, geno, ignore.gen.model = FALSE) {
     stop("The geno did not pass. See warning for reason.")
   
   # If the geno input is a list, recombine
-  if (is.list(geno))
-    geno <- do.call("cbind", geno)
+  if (is.list(geno)) geno <- do.call("cbind", geno)
   
   # Total number of loci
   n_loci <- nloci(genome = genome, by.chr = TRUE)
@@ -139,7 +138,7 @@ split_geno <- function(genome, geno, ignore.gen.model = FALSE) {
          or the number of markers.")
   }
   
-  geno_split <- lapply(X = split_vec, FUN = function(ind) geno[,ind])
+  geno_split <- lapply(X = split_vec, FUN = function(ind) geno[,ind, drop = FALSE])
   
   # Return
   return(geno_split)
