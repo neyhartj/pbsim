@@ -4,6 +4,8 @@
 \alias{pheno}
 \alias{gv}
 \alias{pgv}
+\alias{meanG}
+\alias{varG}
 \title{Extract values from a population}
 \usage{
 pheno(pop, means = TRUE)
@@ -11,6 +13,10 @@ pheno(pop, means = TRUE)
 gv(pop)
 
 pgv(pop)
+
+meanG(pop)
+
+varG(pop)
 }
 \arguments{
 \item{pop}{A 'pop' object.}
@@ -27,6 +33,8 @@ genotypic values.
   \item{pheno}{Extract phenotypic values.}
   \item{gv}{Extract genotypic values.}
   \item{pgv}{Extract predicted genotypic values.}
+  \item{meanG}{Calculate the average genotypic value.}
+  \item{varG}{Calculate the \emph{population} genetic variance.}
 }
 }
 \section{Functions}{
@@ -34,6 +42,10 @@ genotypic values.
 \item \code{gv}: 
 
 \item \code{pgv}: 
+
+\item \code{meanG}: 
+
+\item \code{varG}: 
 }}
 
 \examples{

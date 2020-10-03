@@ -78,7 +78,20 @@ ped <- sim_pedigree(n.par = 4, n.ind = 100, n.selfgen = 2)
 # Simulate a group of families from the crossing block
 fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
                         crossing.block = cb)
+                        
+## Simulate RIL familes of different sizes
 
+# Generate a crossing block with 5 crosses
+cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5, type = "2way")
+# Number of individuals per cross
+nIndCross <- c(20, 30, 40, 50, 60)
+
+# Create a list of pedigrees
+pedList <- sapply(nIndCross, sim_pedigree, n.par = 2, simplify = FALSE)
+
+# Simulate a group of families from the crossing block
+fam_cb <- sim_family_cb(genome = genome, pedigree = pedList, founder.pop = founder.pop, 
+                        crossing.block = cb)
 
 
 

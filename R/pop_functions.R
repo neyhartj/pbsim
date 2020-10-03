@@ -688,6 +688,18 @@ select_pop <- function(pop, intensity = 0.1, index = 1, type = c("phenotypic", "
 
 
 
+#' Population summary functions
+#' 
+#' 
+#' 
+#'
+#'
+ 
+
+
+
+
+
 
 
 

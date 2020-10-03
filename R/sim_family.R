@@ -361,7 +361,20 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
 #' # Simulate a group of families from the crossing block
 #' fam_cb <- sim_family_cb(genome = genome, pedigree = ped, founder.pop = founder.pop, 
 #'                         crossing.block = cb)
-#'
+#'                         
+#' ## Simulate RIL familes of different sizes
+#' 
+#' # Generate a crossing block with 5 crosses
+#' cb <- sim_crossing_block(parents = indnames(founder.pop), n.crosses = 5, type = "2way")
+#' # Number of individuals per cross
+#' nIndCross <- c(20, 30, 40, 50, 60)
+#' 
+#' # Create a list of pedigrees
+#' pedList <- sapply(nIndCross, sim_pedigree, n.par = 2, simplify = FALSE)
+#' 
+#' # Simulate a group of families from the crossing block
+#' fam_cb <- sim_family_cb(genome = genome, pedigree = pedList, founder.pop = founder.pop, 
+#'                         crossing.block = cb)
 #'
 #'
 #'
@@ -373,40 +386,62 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
 sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   
   # Error handling
-  if (!inherits(genome, "genome"))
-    stop("The input 'genome' must be of class 'genome.'")
+  if (!inherits(genome, "genome")) stop("The input 'genome' must be of class 'genome.'")
   
   # founder.pop needs to be a pop object
-  if (!inherits(founder.pop, "pop"))
-    stop("The input 'founder.pop' must be of class 'pop'")
+  if (!inherits(founder.pop, "pop")) stop("The input 'founder.pop' must be of class 'pop'")
   
   # Check the genome and geno
-  if (!check_geno(genome = genome, geno = founder.pop$geno))
-    stop("The geno did not pass. See warning for reason.")
+  if (!check_geno(genome = genome, geno = founder.pop$geno)) stop("The geno did not pass. See warning for reason.")
   
-  # Check the pedigree
-  if (!simcross::check_pedigree(pedigree, ignore_sex = TRUE))
-    stop("The pedigree is not formatted correctly.")
-  
-  
-  
+  # If pedigree is a list of pedigrees, make sure it is
+  # the same length as nrows of the crossing.block
+  if (is.list(pedigree)) {
+    stopifnot(length(pedigree) == nrow(crossing.block))
+    # check each pedigree
+    if (any(!sapply(pedigree, simcross::check_pedigree, ignore_sex = TRUE))) stop("One or more pedigrees are not formatted correctly.")
+    
+  } else {
+    # Check the pedigree
+    if (!simcross::check_pedigree(pedigree, ignore_sex = TRUE)) stop("The pedigree is not formatted correctly.")
+    
+  }
   
   # Are all of the parents in the crossing block in the founder.pop?
-  if (!all(unique(unlist(crossing.block)) %in% indnames(founder.pop)))
+  if (!all(unique(unlist(crossing.block)) %in% indnames(founder.pop))) {
     stop("Not all of the parents in the crossing block are in the 'founder.pop'.")
+  }
   
   fam_cb <- vector("list", nrow(crossing.block))
   
-  # Seq along the crossing block
-  for (i in seq_along(fam_cb)) {
+  # Separate flow by whether pedigree is a list
+  if (is.list(pedigree)) {
     
-    parents <- unlist(crossing.block[i,])
-    founder_geno <- subset_pop(pop = founder.pop, individual = parents)
-    fam_cb[[i]] <- sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
-                              family.num = i, ... = ...)
-
+    # Seq along the crossing block
+    for (i in seq_along(fam_cb)) {
+      
+      parents <- unlist(crossing.block[i,])
+      founder_geno <- subset_pop(pop = founder.pop, individual = parents)
+      fam_cb[[i]] <- sim_family(genome = genome, pedigree = pedigree[[i]], founder.pop = founder_geno, 
+                                family.num = i, ... = ...)
+      
+    }
+    
+    
+  } else {
+  
+    # Seq along the crossing block
+    for (i in seq_along(fam_cb)) {
+      
+      parents <- unlist(crossing.block[i,])
+      founder_geno <- subset_pop(pop = founder.pop, individual = parents)
+      fam_cb[[i]] <- sim_family(genome = genome, pedigree = pedigree, founder.pop = founder_geno, 
+                                family.num = i, ... = ...)
+      
+    }
+    
   }
-
+    
 
   # Combine the populations and return
   combine_pop(pop_list = fam_cb)

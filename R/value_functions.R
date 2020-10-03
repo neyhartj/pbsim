@@ -14,6 +14,8 @@
 #'   \item{pheno}{Extract phenotypic values.}
 #'   \item{gv}{Extract genotypic values.}
 #'   \item{pgv}{Extract predicted genotypic values.}
+#'   \item{meanG}{Calculate the average genotypic value.}
+#'   \item{varG}{Calculate the \emph{population} genetic variance.}
 #' }
 #' 
 #' @examples 
@@ -80,6 +82,29 @@ pgv <- function(pop) {
   # Error
   stopifnot(class(pop) == "pop")
   pop$pred_val
+}
+
+
+#' @describeIn pheno
+#' 
+#' @export
+#' 
+meanG <- function(pop) {
+  # Error
+  stopifnot(class(pop) == "pop")
+  colMeans(pop$geno_val[-1])
+}
+
+
+#' @describeIn pheno
+#' 
+#' @export
+#' 
+varG <- function(pop) {
+  # Error
+  stopifnot(class(pop) == "pop")
+  gvs <- gv(pop)
+  sapply(X = gvs[-1], FUN = function(g) mean((g - mean(g))^2))
 }
 
 
