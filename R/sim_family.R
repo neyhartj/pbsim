@@ -396,7 +396,7 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   
   # If pedigree is a list of pedigrees, make sure it is
   # the same length as nrows of the crossing.block
-  if (is.list(pedigree)) {
+  if (inherits(pedigree, "list")) {
     stopifnot(length(pedigree) == nrow(crossing.block))
     # check each pedigree
     if (any(!sapply(pedigree, simcross::check_pedigree, ignore_sex = TRUE))) stop("One or more pedigrees are not formatted correctly.")
@@ -415,7 +415,7 @@ sim_family_cb <- function(genome, pedigree, founder.pop, crossing.block, ...) {
   fam_cb <- vector("list", nrow(crossing.block))
   
   # Separate flow by whether pedigree is a list
-  if (is.list(pedigree)) {
+  if (inherits(pedigree, "list")) {
     
     # Seq along the crossing block
     for (i in seq_along(fam_cb)) {
