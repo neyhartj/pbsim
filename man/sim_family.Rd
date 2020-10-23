@@ -40,10 +40,10 @@ Other arguments can be passed to internal functions in \code{sim_family}:
   \item{\code{dh}}{A logical indicating if double-haploid lines should be created
   at the end of selfing. Doubled-haploids are generated at the last generation
   of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
-  lines are induced after the \emph{F_2}).}
+  lines are induced after the \emph{F_2}). \strong{Currently ignored.}}
   \item{\code{marker.gen}}{Numeric indicating the selfing generation at which to genotype
   individuals in the family. For instance, if \code{marker.gen = 2}, individuals
-  are genotyped at the F_3 stage.}
+  are genotyped at the F_3 stage. \strong{Currently ignored.}}
   \item{\code{m}}{The crossover interference parameter. See 
   \code{\link[simcross]{sim_from_pedigree}} for more information. }
   \item{\code{p}}{The proportion of crosses from non-interference process.

@@ -16,10 +16,10 @@
 #'   \item{\code{dh}}{A logical indicating if double-haploid lines should be created
 #'   at the end of selfing. Doubled-haploids are generated at the last generation
 #'   of selfing (e.g. if \emph{F_3} individuals are specified in the pedigree, DH
-#'   lines are induced after the \emph{F_2}).}
+#'   lines are induced after the \emph{F_2}). \strong{Currently ignored.}}
 #'   \item{\code{marker.gen}}{Numeric indicating the selfing generation at which to genotype
 #'   individuals in the family. For instance, if \code{marker.gen = 2}, individuals
-#'   are genotyped at the F_3 stage.}
+#'   are genotyped at the F_3 stage. \strong{Currently ignored.}}
 #'   \item{\code{m}}{The crossover interference parameter. See 
 #'   \code{\link[simcross]{sim_from_pedigree}} for more information. }
 #'   \item{\code{p}}{The proportion of crosses from non-interference process.
@@ -88,7 +88,6 @@
 #' 
 #' 
 #'                   
-#' @import AlphaSimR
 #' @importFrom simcross check_pedigree
 #' @importFrom mpMap2 detailedPedigree simulateMPCross
 #' @importFrom qtl sim.cross
@@ -126,8 +125,13 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
   other.args <- list(...)
   map.function <- match.arg(map.function)
   
+  ####
   # For doubled-haploids
   dh <- ifelse(is.null(other.args$dh), FALSE, other.args$dh)
+  ## DH capability is not working; add warning
+  if (dh) warning("Doubled-haploid generation is currently not supported. The 'dh' argument is ignored.")
+  ####
+  
   
   # Marker genotyping generations
   # Set to the max pedigree generation
@@ -197,44 +201,46 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
       prog_marker_geno <- NULL
       
     } else if ( marker_gen < max(pedigree$gen) ) {
+      
+      stop("Marker generations less than the inbreeding generations are currently not supported.")
     
-      # Create a founder pop from the parents of the family
-      founderPop <- newMapPop(genMap = structure(genome$map, class = "numeric"), haplotypes = founder.pop$geno,
-                              inbred = TRUE, ploidy = 2)
-      # Simulation parameter object
-      simParamTemp <- SimParam$new(founderPop = founderPop)
-      parentPop <- newPop(rawPop = founderPop, simParam = simParamTemp)
-      
-      
-      ## Split by number of founders
-      ## 2
-      if (n_founders == 2) {
-
-        # Create the cross - F1
-        pop1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = n_ind, simParam = simParamTemp)  
-        
-      ## 4
-      } else {
-        
-        # Create the first cross, then the second
-        cross1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = 1, simParam = simParamTemp)
-        cross2 <- makeCross(pop = parentPop, crossPlan = cbind(3,4), nProgeny = 1, simParam = simParamTemp)
-        # F1
-        pop1 <- makeCross2(females = cross1, males = cross2, nProgeny = n_ind, crossPlan = cbind(1,1),
-                           simParam = simParamTemp)
-        
-      }
-
-      # Inbreed to marker generation
-      for (s in seq(2, marker_gen + 1)) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
-      # Genotype
-      prog_marker_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
-      # continue to inbreed
-      for (s in seq(s+1, max(pedigree$gen))) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
-      
-      # Get segregating sites
-      prog_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
-      dimnames(prog_marker_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
+      # # Create a founder pop from the parents of the family
+      # founderPop <- newMapPop(genMap = structure(genome$map, class = "numeric"), haplotypes = founder.pop$geno,
+      #                         inbred = TRUE, ploidy = 2)
+      # # Simulation parameter object
+      # simParamTemp <- SimParam$new(founderPop = founderPop)
+      # parentPop <- newPop(rawPop = founderPop, simParam = simParamTemp)
+      # 
+      # 
+      # ## Split by number of founders
+      # ## 2
+      # if (n_founders == 2) {
+      # 
+      #   # Create the cross - F1
+      #   pop1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = n_ind, simParam = simParamTemp)  
+      #   
+      # ## 4
+      # } else {
+      #   
+      #   # Create the first cross, then the second
+      #   cross1 <- makeCross(pop = parentPop, crossPlan = cbind(1,2), nProgeny = 1, simParam = simParamTemp)
+      #   cross2 <- makeCross(pop = parentPop, crossPlan = cbind(3,4), nProgeny = 1, simParam = simParamTemp)
+      #   # F1
+      #   pop1 <- makeCross2(females = cross1, males = cross2, nProgeny = n_ind, crossPlan = cbind(1,1),
+      #                      simParam = simParamTemp)
+      #   
+      # }
+      # 
+      # # Inbreed to marker generation
+      # for (s in seq(2, marker_gen + 1)) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
+      # # Genotype
+      # prog_marker_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
+      # # continue to inbreed
+      # for (s in seq(s+1, max(pedigree$gen))) pop1 <- self(pop = pop1, nProgeny = 1, simParam = simParamTemp)
+      # 
+      # # Get segregating sites
+      # prog_geno <- pullSegSiteGeno(pop = pop1, simParam = simParamTemp)
+      # dimnames(prog_marker_geno) <- list(new_names, markernames(genome, include.qtl = TRUE))
       
       
       
@@ -244,6 +250,7 @@ sim_family <- function(genome, pedigree, founder.pop, map.function = c("haldane"
     }
     
     
+    # Else infinite inbreeding
   } else {
     
     # Otherwise use sim.cross from qtl

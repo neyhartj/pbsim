@@ -87,8 +87,6 @@
 #' 
 #' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", V_GE.scale = 2)
 #' 
-#'  
-#' @import dplyr
 #' 
 #' @export
 #' 
@@ -285,8 +283,8 @@ that the chromosomes are given in numbers, not names.")
            chromosomes.")
     
     # Rename to qtl.specs - and convert to df
-    qtl_specs <- list(as.data.frame(qtl.model, stringsAsFactors = FALSE)) %>% 
-      lapply(structure, names = c("chr", "pos", "add_eff", "dom_eff"))
+    qtl_specs <- list(as.data.frame(qtl.model, stringsAsFactors = FALSE))
+    qtl_specs <- lapply(qtl_specs, structure, names = c("chr", "pos", "add_eff", "dom_eff"))
     
     # Add the genetic model to the genome
     genome[["gen_model"]] <- lapply(X = qtl_specs, FUN = arrange, chr, pos)

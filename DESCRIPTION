@@ -23,11 +23,12 @@ Imports:
     BGLR,
     Matrix,
     methods,
-    mpMap2,
     simcross,
-    AlphaSimR,
     arrangements
 Suggests: 
     knitr,
     rmarkdown
+Remotes:
+    url::https://cran.r-project.org/src/contrib/Archive/mpMap2/mpMap2_1.0.4.tar.gz
+    github::rohan-shah/mpMap2@c43bb51
 VignetteBuilder: knitr
