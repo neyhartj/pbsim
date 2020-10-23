@@ -10,6 +10,9 @@
 #' the favorable QTL allele (\code{a}) and the fourth column gives the dominance
 #' effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
 #' randomly assigned based on the number of rows in the matrix.
+#' @param geno Genotype data for a base population. Must be a matrix of dimensions 
+#' \code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a 
+#' list of such matrices. Must be passed if \code{V_GE.scale} is passed.
 #' @param ... Other arguments. See \emph{Details} for more information.
 #' 
 #' @details
@@ -42,6 +45,9 @@
 #'   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
 #'   This is useful if you want to simulate variable genetic architecture, but keep
 #'   the number of SNP markers constant.}
+#'   \item{\code{V_GE.scale}}{The scale of genotype-environment variance relative
+#'   to the genetic variance. If passed and non-zero, this allow for linear QTL-environment
+#'   interaction.}
 #' }
 #' 
 #' Also note the following rules that apply when the \code{qtl.model} input is 
@@ -74,12 +80,19 @@
 #' qtl.model <- matrix(nrow = 15, ncol = 4)
 #' 
 #' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+#' 
+#' # Generate a model with 15 QTL with QTL-environment interaction
+#' # First simulate a population to use the genotype data
+#' geno <- sim_pop(genome = genome, n.ind = 100, ignore.gen.model = TRUE)$geno
+#' 
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", V_GE.scale = 2)
+#' 
 #'  
 #' @import dplyr
 #' 
 #' @export
 #' 
-sim_gen_model <- function(genome, qtl.model, ...) {
+sim_gen_model <- function(genome, qtl.model, geno, ...) {
   
   # Make sure genome inherits the class "genome."
   if (!inherits(genome, "genome"))
@@ -104,10 +117,27 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     stop("The matrix or matrices in 'qtl.model' must have at least 4 columns.")
   
   # The QTL model must be all NA or no NA
-  random_qtl <- all(is.na(qtl.model))
+  random_qtl <- all(is.na(qtl.model)) 
   
   # Extract other arguments
   other.args <- list(...)
+  V_GE_scale <- other.args$V_GE.scale
+  
+  # If V_GE.scale is passed, make sure geno is present
+  if (!is.null(V_GE_scale)) {
+    # V_GE_scale must be numeric
+    if(!is.numeric(V_GE_scale)) stop("Input 'V_GE.scale' must be numeric.")
+    
+    if (missing(geno)) {
+      stop("The input 'geno' must be passed if 'V_GE.scale' is passed.")
+      
+    } else {
+      # Check the genos
+      if (!check_geno(genome = genome, geno = geno, ignore.gen.model = TRUE))
+        stop("The geno did not pass. See warning for reason.")
+      
+    }
+  }
   
   # If any should be randomly generated, continue
   if (random_qtl) {
@@ -154,15 +184,13 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     } else {
       dom.eff <- rnorm(n_qtl)
     }
-    
-    
+
 
     # If the max.qtl argument is FALSE, set it to the maximum number of QTL
     # for any trait
     max.qtl <- other.args$max.qtl
     
-    if (is.null(max.qtl))
-      max.qtl <- nrow(qtl.model)
+    if (is.null(max.qtl)) max.qtl <- nrow(qtl.model)
     
 
     
@@ -170,19 +198,19 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     marker_sample <- sample(x = markernames(genome, include.qtl = TRUE), size = max.qtl)
     
     # Get the positions of those markers
-    marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample) %>%
-      mutate(marker = row.names(.))
+    marker_sample_pos <- find_markerpos(genome = genome, marker = marker_sample)
+    marker_sample_pos$marker <- row.names(marker_sample_pos)
     
     # Set the new length of add.eff and dom.eff
     length(add.eff) <- max.qtl
     length(dom.eff) <- max.qtl
     
     # Pad with 0, not NA, and add to the df
-    marker_sample_pos1 <- marker_sample_pos %>%
-      mutate(add.eff = ifelse(is.na(add.eff), 0, add.eff),
-             dom.eff = ifelse(is.na(dom.eff), 0, dom.eff)) %>%
-      arrange(chr, pos)
-    
+    marker_sample_pos1 <- marker_sample_pos
+    marker_sample_pos1$add.eff <- ifelse(is.na(add.eff), 0, add.eff)
+    marker_sample_pos1$dom.eff <- ifelse(is.na(dom.eff), 0, dom.eff)
+    marker_sample_pos1 <- marker_sample_pos1[order(marker_sample_pos1$chr, marker_sample_pos1$pos),,drop = FALSE]
+
     # Extract the chr and pos
     chr <- marker_sample_pos1$chr
     pos <- marker_sample_pos1$pos
@@ -192,10 +220,41 @@ sim_gen_model <- function(genome, qtl.model, ...) {
     # Assign marker name for these QTL
     qtl_marker_name <- marker_sample_pos1$marker
       
-    # Assemble the matrix
+    # Assemble the df
     qtl_specs[[1]] <- data.frame(chr = chr, pos = pos, add_eff = add.eff, dom_eff = dom.eff,
                                  qtl_name = qtl_marker_name, qtl1_pair = NA, 
                                  stringsAsFactors = FALSE)
+    
+    # Add the genetic model to the genome
+    genome[["gen_model"]] <- qtl_specs
+    
+    
+    # If V_GE_scale is not null, use the genos to first estimate the genetic variance; then
+    # add gxe information
+    if (!is.null(V_GE_scale)) {
+      
+      # Calculate the genotypic values
+      gval <- pbsim:::calc_genoval(genome = genome, geno = geno)$trait1
+      # Calculate the genetic variance
+      gVar <- mean((gval - mean(gval))^2)
+      # Calculate the GxE variance
+      geVar <- gVar * V_GE_scale
+      
+      # Draw gxe effects from a normal distribution
+      gxe.eff <- rnorm(n = length(add.eff), mean = 0, sd = sqrt(geVar / length(add.eff)))
+      # gxe.eff <- rnorm(n = length(add.eff), mean = 0, sd = sqrt(geVar) / length(add.eff))
+      
+      
+      # Assemble the df
+      qtl_specs[[1]] <- data.frame(chr = chr, pos = pos, add_eff = add.eff, dom_eff = dom.eff,
+                                   gxe_slope = gxe.eff,
+                                   qtl_name = qtl_marker_name, qtl1_pair = NA, 
+                                   stringsAsFactors = FALSE)
+      
+      # Add the genetic model to the genome
+      genome[["gen_model"]] <- qtl_specs
+      
+    }
     
   } else {
     # Else verify that the provided qtl.model matrices are sufficient
@@ -229,10 +288,11 @@ that the chromosomes are given in numbers, not names.")
     qtl_specs <- list(as.data.frame(qtl.model, stringsAsFactors = FALSE)) %>% 
       lapply(structure, names = c("chr", "pos", "add_eff", "dom_eff"))
     
+    # Add the genetic model to the genome
+    genome[["gen_model"]] <- lapply(X = qtl_specs, FUN = arrange, chr, pos)
+    
   }
   
-  # Add the genetic model to the genome
-  genome[["gen_model"]] <- lapply(X = qtl_specs, FUN = arrange, chr, pos)
   
   ## Add names of QTL if not present
   # Pull out all QTL

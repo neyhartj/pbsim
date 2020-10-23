@@ -34,8 +34,6 @@ Other arguments that can be specified are :
 \describe{
   \item{\code{V_E}}{The variance of environmental effects. May be a scalar 
   (V_E is the same for all traits) or a numeric vector of length n_trait. }
-  \item{\code{V_GE}}{The variance of genotype-environment interaction effects. May be a scalar 
-  (V_GE is the same for all traits) or a numeric vector of length n_trait. }
   \item{\code{V_R}}{The variance of the residual effects. May be a scalar 
   (V_R is the same for all traits) or a numeric vector of length n_trait. }
 }
@@ -68,8 +66,19 @@ pop <- sim_pop(genome = genome, n.ind = 200)
 pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 
 
-## Simulate GxE
-pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2, V_GE = var(pop$geno_val$trait1) * 3, V_E = NULL, V_R = NULL)
+# Simulate GxE
+# First simulate a population
+pop <- sim_pop(genome = genome, n.ind = 200, ignore.gen.model = TRUE)
+
+# Second, create a gene model with QxE
+genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, geno = pop$geno,
+                        add.dist = "geometric", V_GE.scale = 2)
+                        
+# Re-save the population
+pop <- create_pop(genome = genome, geno = do.call("cbind", pop$geno))
+
+# Generate phenotypes 
+pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 
 
 

@@ -24,11 +24,10 @@ Imports:
     Matrix,
     methods,
     mpMap2,
+    simcross,
     AlphaSimR,
     arrangements
 Suggests: 
     knitr,
     rmarkdown
-Remotes: 
-    github::kbroman/simcross,
 VignetteBuilder: knitr

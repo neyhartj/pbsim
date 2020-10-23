@@ -98,7 +98,9 @@ create_pop <- function(genome, geno, ignore.gen.model = FALSE) {
   
   # Add data to the pop
   pop[["geno"]] <- geno_split
-  pop[["geno_val"]] <- geno_val
+  pop[["geno_val"]] <- geno_val$gv
+  pop[["gxe_slope"]] <- geno_val$gbeta
+  
   
   # Return
   return(pop)

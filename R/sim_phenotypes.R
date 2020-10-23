@@ -19,8 +19,6 @@
 #' \describe{
 #'   \item{\code{V_E}}{The variance of environmental effects. May be a scalar 
 #'   (V_E is the same for all traits) or a numeric vector of length n_trait. }
-#'   \item{\code{V_GE}}{The variance of genotype-environment interaction effects. May be a scalar 
-#'   (V_GE is the same for all traits) or a numeric vector of length n_trait. }
 #'   \item{\code{V_R}}{The variance of the residual effects. May be a scalar 
 #'   (V_R is the same for all traits) or a numeric vector of length n_trait. }
 #' }
@@ -57,8 +55,19 @@
 #' pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 #' 
 #' 
-#' ## Simulate GxE
-#' pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2, V_GE = var(pop$geno_val$trait1) * 3, V_E = NULL, V_R = NULL)
+#' # Simulate GxE
+#' # First simulate a population
+#' pop <- sim_pop(genome = genome, n.ind = 200, ignore.gen.model = TRUE)
+#' 
+#' # Second, create a gene model with QxE
+#' genome <- sim_gen_model(genome = genome, qtl.model = qtl.model, geno = pop$geno,
+#'                         add.dist = "geometric", V_GE.scale = 2)
+#'                         
+#' # Re-save the population
+#' pop <- create_pop(genome = genome, geno = do.call("cbind", pop$geno))
+#' 
+#' # Generate phenotypes 
+#' pop1 <- sim_phenoval(pop = pop, h2 = 0.5, n.env = 2, n.rep = 2)
 #' 
 #' 
 #' 
@@ -68,15 +77,13 @@
 sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
   # Make sure pop inherits the class "pop"
-  if (!inherits(pop, "pop"))
-    stop("The input 'pop' must be of class 'pop'.")
+  if (!inherits(pop, "pop")) stop("The input 'pop' must be of class 'pop'.")
   
   # Grab the genotypic values
-  geno_val <- pop$geno_val
+  geno_val <- gv(pop)
   
   # Does the pop object have genotypic values
-  if (is.null(geno_val))
-    stop("The 'pop' object must have the data.frame of genotypic values")
+  if (is.null(geno_val)) stop("The 'pop' object must have the data.frame of genotypic values")
   
   # Number of traits
   n_trait <- sum(startsWith(x = names(geno_val), "trait"))
@@ -86,7 +93,6 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   
   # Other variances
   V_E <- other.args$V_E
-  V_GE <- other.args$V_GE
   V_R <- other.args$V_R
   
   # The same goes for V_E and V_R - this will pass if both or either are NULL.
@@ -94,9 +100,6 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     stop("The length of V_E, if not 1, must be the same as the number of traits.")
   
   # The same goes for V_E and V_R - this will pass if both or either are NULL.
-  if (length(V_GE) > 1 & length(V_GE) != n_trait)
-    stop("The length of V_GE, if not 1, must be the same as the number of traits.")
-  
   if (length(V_R) > 1 & length(V_R) != n_trait)
     stop("The length of h2, if not 1, must be the same as the number of traits.")
   
@@ -105,8 +108,8 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   if (length(other.args) != 0) {
     
     # Warn if all are not provided
-    if (!all(c("V_E", "V_R", "V_GE") %in% names(other.args)))
-      warning("V_E, V_GE, or V_R might have been passed, but were not detected. Check 
+    if (!all(c("V_E", "V_R") %in% names(other.args)))
+      warning("V_E or V_R might have been passed, but were not detected. Check 
               your arguments.")
     
     # If none of the variance components are passed; you must provide the heritability
@@ -126,27 +129,20 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
   }
   
   # Calculate genetic variance for each trait
-  V_G <- sapply(geno_val[-1], var) 
+  V_G <- varG(pop) 
     
   
   # Calculate environment variance if not provided
   if (is.null(V_E)) V_E <- V_G * 8
   
-  ## V_GE is 0 if not passed
-  if (is.null(V_GE)) V_GE <- 0
-  
   # Calculate residual variance if not provided
-  # if (is.null(V_R)) V_R <- n.rep * n.env * ( (V_G / h2) - V_G - (V_GE / n.env) )
   if (is.null(V_R)) V_R <- n.rep * n.env * ( (V_G / h2) - V_G )
-  
-  
-  
-  
+
   # Number of individuals
   n_ind <- nind(pop)
   
   # List of variance components
-  var_comp <- list(V_G = V_G, V_E = V_E, V_GE = V_GE, V_R = V_R)
+  var_comp <- list(V_G = V_G, V_E = V_E, V_R = V_R)
   
   # Generate environment effects
   t_eff <- lapply(X = V_E, function(varE) {
@@ -156,11 +152,26 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     
   t_eff1 <- lapply(t_eff, matrix, nrow = n_ind, ncol = n.env * n.rep, byrow = TRUE)
   
+  # Get the gxe slopes
+  gt_slopes <- pop$gxe_slope
+  
+  if (!is.null(gt_slopes)) {
+    gt_slopes <- subset(gt_slopes, select = -ind, drop = FALSE)
+    
+  } else {
+    gt_slopes <- replicate(n = ncol(geno_val) - 1, rep(0, length = nind(pop)), simplify = FALSE)
+    
+  }
+    
   # Generate GxE effects
-  gt_eff <- lapply(X = V_GE, function(varGE) {
-    sim <- rnorm(n = n.env * n_ind, mean = 0, sd = sqrt(varGE))
-    matrix(sim, nrow = n_ind, ncol = n.env * n.rep, byrow = FALSE)
-  })
+  gt_eff <- mapply(gt_slopes, t_eff1, FUN = function(gxe, teff) {
+    # Get the genotype-specific slopes
+    # Remember to add 1
+    geno_b <- matrix(data = 1 + gxe, nrow = n_ind, ncol = ncol(teff)) 
+    # Multiply the slopes by the environmental effects
+    geno_b * teff
+  }, SIMPLIFY = FALSE)
+
   
   # Generate residual effects
   epsilon <- lapply(X = V_R, function(varR) {
@@ -168,17 +179,16 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     matrix(sim, nrow = n_ind, ncol = n.env * n.rep, byrow = TRUE)
   })
   
-  
-  g <- subset(pop$geno_val, select = -ind, drop = FALSE)
+  g <- subset(geno_val, select = -ind, drop = FALSE)
   
   # Apply over all of the list
-  p <- mapply(g, t_eff1, gt_eff, epsilon, FUN = function(g1, t1, gt1, ep) {
+  p <- mapply(g, gt_eff, epsilon, FUN = function(g1, gt1, ep) {
     
     # Reform the g1 matrix
     g1 <- matrix(g1, nrow = n_ind, ncol = n.env * n.rep)
     
     # Sum
-    p <- g1 + t1 + gt1 + ep
+    p <- g1 + gt1 + ep
     
     p1 <- structure(p, dimnames = list(indnames(pop), paste( paste("env", seq(n.env), sep = ""), rep(paste("rep", seq(n.rep), sep = ""), each = n.env), sep = "_" )) )
     

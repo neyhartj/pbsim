@@ -4,7 +4,7 @@
 \alias{sim_gen_model}
 \title{Define the genetic model of a trait}
 \usage{
-sim_gen_model(genome, qtl.model, ...)
+sim_gen_model(genome, qtl.model, geno, ...)
 }
 \arguments{
 \item{genome}{An object of class \code{genome}.}
@@ -15,6 +15,10 @@ column gives the locus position (in cM), the third column gives the additive eff
 the favorable QTL allele (\code{a}) and the fourth column gives the dominance
 effect at that QTL (\code{d}). If the matrix is one of NA, QTL will be
 randomly assigned based on the number of rows in the matrix.}
+
+\item{geno}{Genotype data for a base population. Must be a matrix of dimensions 
+\code{n.ind} x \code{n.loci}, the elements of which must be z {0, 1, 2}, or a 
+list of such matrices. Must be passed if \code{V_GE.scale} is passed.}
 
 \item{...}{Other arguments. See \emph{Details} for more information.}
 }
@@ -54,6 +58,9 @@ Other arguments include:
   and \code{max.qtl = M}, then \emph{M} - \emph{L} QTL are given NULL effects.
   This is useful if you want to simulate variable genetic architecture, but keep
   the number of SNP markers constant.}
+  \item{\code{V_GE.scale}}{The scale of genotype-environment variance relative
+  to the genetic variance. If passed and non-zero, this allow for linear QTL-environment
+  interaction.}
 }
 
 Also note the following rules that apply when the \code{qtl.model} input is 
@@ -83,5 +90,12 @@ genome <- sim_gen_model(genome, qtl.model)
 qtl.model <- matrix(nrow = 15, ncol = 4)
 
 genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric")
+
+# Generate a model with 15 QTL with QTL-environment interaction
+# First simulate a population to use the genotype data
+geno <- sim_pop(genome = genome, n.ind = 100, ignore.gen.model = TRUE)$geno
+
+genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", V_GE.scale = 2)
+
  
 }
