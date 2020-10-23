@@ -1,6 +1,6 @@
 Package: pbsim
 Title: Simulations of Plant Breeding Experiments
-Version: 0.1.0.001
+Version: 0.1.0.002
 Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("aut", "cre"))
 Description: Simulate plant breeding experiments, with a focus on the genetics of 
     crosses and quantitative trait loci (QTL). Intended for hypothesis testing in 
@@ -30,5 +30,4 @@ Suggests:
     rmarkdown
 Remotes:
     url::https://cran.r-project.org/src/contrib/Archive/mpMap2/mpMap2_1.0.4.tar.gz
-    github::rohan-shah/mpMap2@c43bb51
 VignetteBuilder: knitr

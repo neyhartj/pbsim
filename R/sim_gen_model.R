@@ -232,7 +232,7 @@ sim_gen_model <- function(genome, qtl.model, geno, ...) {
     if (!is.null(V_GE_scale)) {
       
       # Calculate the genotypic values
-      gval <- pbsim:::calc_genoval(genome = genome, geno = geno)$trait1
+      gval <- pbsim:::calc_genoval(genome = genome, geno = geno)$gv[[2]] # Selects trait1 only
       # Calculate the genetic variance
       gVar <- mean((gval - mean(gval))^2)
       # Calculate the GxE variance
