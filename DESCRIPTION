@@ -1,6 +1,6 @@
 Package: pbsim
 Title: Simulations of Plant Breeding Experiments
-Version: 0.1.0.002
+Version: 0.1.0.003
 Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("aut", "cre"))
 Description: Simulate plant breeding experiments, with a focus on the genetics of 
     crosses and quantitative trait loci (QTL). Intended for hypothesis testing in 
@@ -10,12 +10,13 @@ Depends:
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 Imports: 
     dplyr,
     tidyr,
     stringr,
     qtl,
+    mpMap2,
     simcross,
     purrr,
     abind,

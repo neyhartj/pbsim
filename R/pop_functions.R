@@ -308,9 +308,7 @@ genotype <- function(genome, pop, error.rate = 0) {
 #' 
 #' # Subset the population
 #' subset_pop(pop, c("ind001", "ind100"))
-#' 
-#' @import dplyr
-#' 
+#'  
 #' @export
 #' 
 subset_pop <- function(pop, individual) {
@@ -336,7 +334,7 @@ subset_pop <- function(pop, individual) {
   
   # Subset various components
   new_pop$geno <- lapply(X = pop$geno, FUN = "[", individual, , drop = FALSE)
-  new_pop$geno_val <- subset(pop$geno_val, ind %in% individual)
+  new_pop$geno_val <- filter(pop$geno_val, ind %in% individual)
 
   # Subset phenotypic values, if present
   if ("pheno_val" %in% element_names) {
@@ -352,6 +350,13 @@ subset_pop <- function(pop, individual) {
   if ("haploids" %in% element_names) {
     
     new_pop$haploids <- lapply(pop$haploids, "[", ,,individual)
+    
+  }
+  
+  # Subset gxe_values values, if present
+  if ("gxe_slope" %in% element_names) {
+    
+    new_pop$gxe_slope <- filter(pop$gxe_slope, ind %in% individual)
     
   }
   
@@ -466,6 +471,13 @@ combine_pop <- function(pop_list) {
     
     # Replace
     new_pop$pheno_val$pheno_mean <- pheno_mean_new1
+    
+  }
+  
+  # Combine gxe slopes, if present
+  if ("gxe_slope" %in% element_names) {
+    
+    new_pop$gxe_slope <- do.call("rbind", lapply(pop_list, "[[", "gxe_slope"))
     
   }
   

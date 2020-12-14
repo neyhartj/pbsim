@@ -85,7 +85,8 @@
 #' # First simulate a population to use the genotype data
 #' geno <- sim_pop(genome = genome, n.ind = 100, ignore.gen.model = TRUE)$geno
 #' 
-#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", V_GE.scale = 2)
+#' genome <- sim_gen_model(genome, qtl.model, add.dist = "geometric", V_GE.scale = 2,
+#'                         geno = geno)
 #' 
 #' 
 #' @export

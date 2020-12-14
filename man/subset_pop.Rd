@@ -36,5 +36,5 @@ pop <- sim_pop(genome = genome, n.ind = 100)
 
 # Subset the population
 subset_pop(pop, c("ind001", "ind100"))
-
+ 
 }

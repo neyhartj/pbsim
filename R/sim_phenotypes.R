@@ -162,12 +162,15 @@ sim_phenoval <- function(pop, h2, n.env = 1, n.rep = 1, ...) {
     gt_slopes <- replicate(n = ncol(geno_val) - 1, rep(0, length = nind(pop)), simplify = FALSE)
     
   }
-    
+
   # Generate GxE effects
-  gt_eff <- mapply(gt_slopes, t_eff1, FUN = function(gxe, teff) {
+  gt_eff <- mapply(gt_slopes, t_eff1, V_E, FUN = function(gxe, teff, ve) {
+    # Rescale the slopes using V_E
+    gxe1 <- gxe / sqrt(ve)
+    
     # Get the genotype-specific slopes
     # Remember to add 1
-    geno_b <- matrix(data = 1 + gxe, nrow = n_ind, ncol = ncol(teff)) 
+    geno_b <- matrix(data = 1 + gxe1, nrow = n_ind, ncol = ncol(teff)) 
     # Multiply the slopes by the environmental effects
     geno_b * teff
   }, SIMPLIFY = FALSE)
