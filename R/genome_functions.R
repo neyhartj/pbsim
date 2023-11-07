@@ -49,13 +49,9 @@
 #' @export 
 #' 
 #' 
-sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "hypred")) {
+sim_genome <- function(len, n.mar, map, eq.spacing = FALSE) {
   
   # Error handling
-  # Address type deprecation
-  type <- match.arg(type)
-  if (type == "hypred") stop("hypred genomes are no longer supported.")
-  
   
   # len and n.mar must be present if map is not
   if (missing(map)) {
@@ -63,7 +59,6 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
     n.mar <- as.numeric(n.mar)
     
   } else {
-    
     if (missing(len))
       len <- sapply(map, max)
     
@@ -73,18 +68,18 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
   }
   
   # The length of the len vector must be the same as that of n.mar
-  if (length(len) != length(n.mar)) 
+  if (length(len) != length(n.mar)) {
     stop("The length of the input 'len' vector does not equal the length of
          'n.mar.'")
+  }
   
-  # Create an empty list of length n.chr
+  # Create an empty list
   genome <- structure(vector("list"), class = "genome")
   
   # If genetic map is NULL, sample from uniform distribution
   if (missing(map)) {
-    
     # Use R/qtl
-    map <- qtl::sim.map(len = len, n.mar = n.mar, include.x = FALSE, eq.spacing = eq.spacing)
+    map <- sim.map(len = len, n.mar = n.mar, include.x = FALSE, eq.spacing = eq.spacing)
     
     # If map is not null, check compatability
   } else {
@@ -104,6 +99,9 @@ sim_genome <- function(len, n.mar, map, eq.spacing = FALSE, type = c("pbsim", "h
   genome[["len"]] <- len
   genome[["n.mar"]] <- n.mar
   genome[["map"]] <- map
+  
+  
+  
   
   
   # Return the genome

@@ -340,6 +340,10 @@ pred_genvar <- function(genome, pedigree, training.pop, founder.pop, crossing.bl
                         method = c("RRBLUP", "BRR", "BayesA", "BL", "BayesB", "BayesC"), 
                         n.iter = 1500, burn.in = 500, thin = 5, save.at = "") {
   
+  
+  # Deprecation warning
+  .Deprecated("Use the PopVar package instead.")
+  
   # Error handling
   if (!inherits(genome, "genome"))
     stop("The input 'genome' must be of class 'genome.'")
